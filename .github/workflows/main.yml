@@ -1,31 +1,55 @@
 name: Build APK
-on: [push, workflow_dispatch]
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
-      - name: Check files
+          cache: false
+
+      - name: List files
         run: ls -R lib tool pubspec.yaml
-      - name: Create android folder if missing
+
+      - name: Create Android project
         run: '[ -d android ] || flutter create . --platforms=android --project-name jadwali'
+
       - name: Relax Kotlin JVM target validation
         run: echo "kotlin.jvm.target.validation.mode=warning" >> android/gradle.properties
+
       - name: Enable core library desugaring
         run: |
           sed -i '/compileOptions {/a\        isCoreLibraryDesugaringEnabled = true' android/app/build.gradle.kts
           printf '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n' >> android/app/build.gradle.kts
           grep -n "isCoreLibraryDesugaringEnabled" android/app/build.gradle.kts
+
       - name: Patch Android (ringtone picker and notifications)
         run: |
           cp tool/MainActivity.kt android/app/src/main/kotlin/com/example/jadwali/MainActivity.kt
           python3 tool/patch_manifest.py
-      - run: flutter pub get
-      - run: flutter build apk --release
-      - uses: actions/upload-artifact@v4
+
+      - name: Create assets
+        run: python3 tool/make_assets.py
+
+      - name: Get packages
+        run: flutter pub get
+
+      - name: Generate launcher icons
+        run: dart run flutter_launcher_icons
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
           name: jadwali-apk
           path: build/app/outputs/flutter-apk/app-release.apk
