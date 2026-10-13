@@ -1513,6 +1513,7 @@ class SoundPage extends StatelessWidget {
                 ],
               ),
             ),
+          ),
           Card(
             child: SwitchListTile(
               title: Text(a.t('vibrate')),
