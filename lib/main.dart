@@ -2,7 +2,12 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:timezone/data/latest_all.dart' as tzdata;
+import 'package:timezone/timezone.dart' as tz;
 
 // ───────────────────────── Constants & strings ─────────────────────────
 
@@ -10,6 +15,12 @@ const kAcc = Color(0xFF3B4BDB);
 const kDeep = Color(0xFF2B37A8);
 const kWarn = Color(0xFFB4430A);
 const kTeal = Color(0xFF0B7A6B);
+
+/// Shared look for icon buttons (44×44, 12px corners) — same as the mockup.
+final kIconStyle = IconButton.styleFrom(
+  fixedSize: const Size(44, 44),
+  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+);
 
 const Map<String, Map<String, String>> _s = {
   'ar': {
@@ -50,6 +61,26 @@ const Map<String, Map<String, String>> _s = {
     'on': 'تم تفعيل التذكير',
     'off': 'تم إيقاف التذكير',
     'lang': 'English',
+    'tSet': 'الضبط',
+    'theme': 'المظهر',
+    'light': 'فاتح',
+    'darkT': 'داكن',
+    'langT': 'اللغة',
+    'notif': 'التنبيهات',
+    'testN': 'إرسال تنبيه تجريبي',
+    'testBody': 'هذا تنبيه تجريبي، التنبيهات تعمل',
+    'notifAll': 'تفعيل كل التنبيهات',
+    'defRem': 'وقت التنبيه الافتراضي',
+    'firstD': 'أول يوم في الأسبوع',
+    'sat': 'السبت',
+    'sun': 'الأحد',
+    'timeF': 'صيغة الوقت',
+    'h12': '12 ساعة',
+    'h24': '24 ساعة',
+    'editT': 'تعديل التذكير',
+    'saveE': 'حفظ التعديلات',
+    'del': 'حذف التذكير',
+    'deleted': 'تم حذف التذكير',
   },
   'en': {
     'name': 'Jadwali',
@@ -89,6 +120,26 @@ const Map<String, Map<String, String>> _s = {
     'on': 'Reminder on',
     'off': 'Reminder off',
     'lang': 'العربية',
+    'tSet': 'Settings',
+    'theme': 'Appearance',
+    'light': 'Light',
+    'darkT': 'Dark',
+    'langT': 'Language',
+    'notif': 'Notifications',
+    'testN': 'Send a test alert',
+    'testBody': 'This is a test alert. Notifications are working',
+    'notifAll': 'All notifications',
+    'defRem': 'Default reminder time',
+    'firstD': 'First day of the week',
+    'sat': 'Saturday',
+    'sun': 'Sunday',
+    'timeF': 'Time format',
+    'h12': '12-hour',
+    'h24': '24-hour',
+    'editT': 'Edit reminder',
+    'saveE': 'Save changes',
+    'del': 'Delete reminder',
+    'deleted': 'Reminder deleted',
   },
 };
 
@@ -102,7 +153,6 @@ const _arDays = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأرب
 const _enDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const _arMonths = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
 const _enMonths = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-const _weekOrder = [6, 0, 1, 2, 3, 4]; // Saturday first
 
 String tr(String k) => _s[store.lang]![k]!;
 String T(Map<String, String> m) => m[store.lang] ?? m.values.first;
@@ -114,6 +164,7 @@ String nd(String s) => store.ar
 String fm(int m) {
   final h = m ~/ 60;
   final mm = (m % 60).toString().padLeft(2, '0');
+  if (store.h24) return nd('${h.toString().padLeft(2, '0')}:$mm');
   final p = store.ar ? (h < 12 ? 'ص' : 'م') : (h < 12 ? 'AM' : 'PM');
   return '${nd('${h % 12 == 0 ? 12 : h % 12}:$mm')} $p';
 }
@@ -157,6 +208,7 @@ class Item {
     required this.remind,
     this.room,
     this.on = true,
+    this.weekly = true,
   });
 
   final int id;
@@ -168,6 +220,7 @@ class Item {
   final int remind; // minutes before
   final Map<String, String>? room;
   bool on;
+  final bool weekly;
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -179,6 +232,7 @@ class Item {
         'remind': remind,
         'room': room,
         'on': on,
+        'weekly': weekly,
       };
 
   factory Item.fromJson(Map<String, dynamic> j) => Item(
@@ -191,6 +245,7 @@ class Item {
         remind: j['remind'] as int,
         room: j['room'] == null ? null : Map<String, String>.from(j['room'] as Map),
         on: j['on'] as bool? ?? true,
+        weekly: j['weekly'] as bool? ?? true,
       );
 }
 
@@ -204,9 +259,16 @@ class AppState extends ChangeNotifier {
   String lang = 'ar';
   List<Item> items = [];
   int tab = 0;
+  ThemeMode mode = ThemeMode.system;
+  bool notify = true; // master switch for all alerts
+  int defRemind = 30; // default lead time for new reminders
+  int firstDay = 6; // 6 = Saturday, 0 = Sunday
+  bool h24 = false; // 24-hour clock
   late int sel = tdx;
 
   bool get ar => lang == 'ar';
+
+  List<int> get weekOrder => firstDay == 6 ? [6, 0, 1, 2, 3, 4] : [0, 1, 2, 3, 4, 6];
 
   /// Today's day index; Friday falls back to Sunday (weekend).
   int get tdx {
@@ -217,6 +279,13 @@ class AppState extends ChangeNotifier {
   Future<void> load() async {
     final p = await SharedPreferences.getInstance();
     lang = p.getString('lang') ?? 'ar';
+    try {
+      mode = ThemeMode.values.byName(p.getString('theme') ?? 'system');
+    } catch (_) {}
+    notify = p.getBool('notify') ?? true;
+    defRemind = p.getInt('defRemind') ?? 30;
+    firstDay = p.getInt('firstDay') ?? 6;
+    h24 = p.getBool('h24') ?? false;
     final raw = p.getString('items');
     try {
       items = raw == null
@@ -233,6 +302,11 @@ class AppState extends ChangeNotifier {
   Future<void> _persist() async {
     final p = await SharedPreferences.getInstance();
     await p.setString('lang', lang);
+    await p.setString('theme', mode.name);
+    await p.setBool('notify', notify);
+    await p.setInt('defRemind', defRemind);
+    await p.setInt('firstDay', firstDay);
+    await p.setBool('h24', h24);
     await p.setString('items', jsonEncode(items.map((e) => e.toJson()).toList()));
   }
 
@@ -240,6 +314,55 @@ class AppState extends ChangeNotifier {
     lang = l;
     _persist();
     notifyListeners();
+    Notifier.rescheduleAll(items);
+  }
+
+  void setMode(ThemeMode m) {
+    mode = m;
+    _persist();
+    notifyListeners();
+  }
+
+  void update(Item n) {
+    final i = items.indexWhere((x) => x.id == n.id);
+    if (i < 0) return;
+    items[i] = n;
+    _persist();
+    notifyListeners();
+    Notifier.rescheduleAll(items);
+  }
+
+  void remove(int id) {
+    items.removeWhere((x) => x.id == id);
+    _persist();
+    notifyListeners();
+    Notifier.rescheduleAll(items);
+  }
+
+  void setNotify(bool v) {
+    notify = v;
+    _persist();
+    notifyListeners();
+    Notifier.rescheduleAll(items);
+  }
+
+  void setDefRemind(int m) {
+    defRemind = m;
+    _persist();
+    notifyListeners();
+  }
+
+  void setFirstDay(int d) {
+    firstDay = d;
+    _persist();
+    notifyListeners();
+  }
+
+  void setH24(bool v) {
+    h24 = v;
+    _persist();
+    notifyListeners();
+    Notifier.rescheduleAll(items);
   }
 
   void goTab(int i) {
@@ -256,12 +379,14 @@ class AppState extends ChangeNotifier {
     i.on = !i.on;
     _persist();
     notifyListeners();
+    Notifier.rescheduleAll(items);
   }
 
   void add(Item i) {
     items.add(i);
     _persist();
     notifyListeners();
+    Notifier.rescheduleAll(items);
   }
 
   List<Item> dayItems(int d) => items.where((i) => i.day == d && i.kind != Kind.due).toList()
@@ -300,24 +425,107 @@ List<Item> _seed() => [
       Item(id: 9, title: _b('هياكل البيانات', 'Data Structures'), kind: Kind.lecture, day: 4, start: 540, end: 630, remind: 30, room: _b('قاعة 214', 'Room 214')),
     ];
 
+// ───────────────────────── Notifications ─────────────────────────
+
+class Notifier {
+  static final _p = FlutterLocalNotificationsPlugin();
+  static bool _ready = false;
+
+  static const _details = NotificationDetails(
+    android: AndroidNotificationDetails(
+      'jadwali_reminders',
+      'Reminders',
+      channelDescription: 'Lecture, exam and deadline reminders',
+      importance: Importance.high,
+      priority: Priority.high,
+    ),
+    iOS: DarwinNotificationDetails(),
+  );
+
+  static Future<void> init() async {
+    try {
+      tzdata.initializeTimeZones();
+      try {
+        tz.setLocalLocation(tz.getLocation(await FlutterTimezone.getLocalTimezone()));
+      } catch (_) {}
+      await _p.initialize(const InitializationSettings(
+        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+        iOS: DarwinInitializationSettings(),
+      ));
+      await _p
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+          ?.requestNotificationsPermission();
+      _ready = true;
+    } catch (_) {}
+  }
+
+  /// First moment the reminder should fire (start time minus the lead time).
+  static tz.TZDateTime _next(Item i) {
+    final now = tz.TZDateTime.now(tz.local);
+    final wd = i.day == 0 ? 7 : i.day; // DateTime: Mon=1 … Sun=7
+    for (var add = 0; add < 15; add++) {
+      final d = now.add(Duration(days: add));
+      if (d.weekday != wd) continue;
+      final t = tz.TZDateTime(tz.local, d.year, d.month, d.day).add(Duration(minutes: i.start - i.remind));
+      if (t.isAfter(now)) return t;
+    }
+    return now.add(const Duration(minutes: 1));
+  }
+
+  static Future<void> rescheduleAll(List<Item> items) async {
+    if (!_ready) return;
+    try {
+      await _p.cancelAll();
+      if (!store.notify) return;
+      for (final i in items) {
+        if (!i.on) continue;
+        await _p.zonedSchedule(
+          i.id % 2147483647,
+          T(i.title),
+          '${kindLabel(i.kind)} · ${fm(i.start)}${i.room != null ? ' · ${T(i.room!)}' : ''}',
+          _next(i),
+          _details,
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+          matchDateTimeComponents:
+              (i.weekly && i.kind != Kind.due) ? DateTimeComponents.dayOfWeekAndTime : null,
+        );
+      }
+    } catch (_) {}
+  }
+
+  static Future<void> test() async {
+    if (!_ready) return;
+    await _p.show(1, tr('name'), tr('testBody'), _details);
+  }
+}
+
 // ───────────────────────── App & theme ─────────────────────────
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await store.load();
+  await Notifier.init();
+  Notifier.rescheduleAll(store.items);
   runApp(const JadwaliApp());
 }
 
 ThemeData _theme(Brightness b) {
   final dark = b == Brightness.dark;
-  return ThemeData(
+  final base = ThemeData(
     useMaterial3: true,
     brightness: b,
     colorScheme: ColorScheme.fromSeed(seedColor: kAcc, brightness: b),
+  );
+  return base.copyWith(
+    textTheme: GoogleFonts.cairoTextTheme(base.textTheme),
     scaffoldBackgroundColor: dark ? const Color(0xFF0E1220) : const Color(0xFFF4F6FB),
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: dark ? const Color(0xFF181E33) : Colors.white,
       indicatorColor: dark ? const Color(0xFF262E52) : const Color(0xFFE8EBFB),
+      surfaceTintColor: Colors.transparent,
+      elevation: 8,
+      shadowColor: Colors.black26,
     ),
   );
 }
@@ -350,7 +558,7 @@ class JadwaliApp extends StatelessWidget {
           GlobalWidgetsLocalizations.delegate,
           GlobalCupertinoLocalizations.delegate,
         ],
-        themeMode: ThemeMode.system,
+        themeMode: store.mode,
         theme: _theme(Brightness.light),
         darkTheme: _theme(Brightness.dark),
         home: const SplashScreen(),
@@ -369,8 +577,13 @@ class LangButton extends StatelessWidget {
       tooltip: tr('lang'),
       icon: const Icon(Icons.language),
       style: light
-          ? IconButton.styleFrom(backgroundColor: Colors.white24, foregroundColor: Colors.white)
-          : null,
+          ? IconButton.styleFrom(
+              backgroundColor: Colors.white24,
+              foregroundColor: Colors.white,
+              fixedSize: const Size(44, 44),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            )
+          : kIconStyle,
       onPressed: () => store.setLang(store.ar ? 'en' : 'ar'),
     );
   }
@@ -420,6 +633,19 @@ class SplashScreen extends StatelessWidget {
             _feature(Icons.notifications_none, tr('f2')),
             _feature(Icons.check, tr('f3')),
             const Spacer(),
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              for (final w in [24.0, 6.0, 6.0])
+                Container(
+                  width: w,
+                  height: 6,
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withAlpha(w > 6 ? 255 : 100),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+            ]),
+            const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
               height: 56,
@@ -450,7 +676,7 @@ class Shell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pages = [const TodayPage(), const WeekPage(), const AddPage()];
+    final pages = [const TodayPage(), const WeekPage(), const AddPage(), const SettingsPage()];
     return ListenableBuilder(
       listenable: store,
       builder: (context, _) => Scaffold(
@@ -462,6 +688,7 @@ class Shell extends StatelessWidget {
             NavigationDestination(icon: const Icon(Icons.home_outlined), selectedIcon: const Icon(Icons.home), label: tr('tHome')),
             NavigationDestination(icon: const Icon(Icons.calendar_month_outlined), selectedIcon: const Icon(Icons.calendar_month), label: tr('tSched')),
             NavigationDestination(icon: const Icon(Icons.add_circle_outline), selectedIcon: const Icon(Icons.add_circle), label: tr('tNew')),
+            NavigationDestination(icon: const Icon(Icons.tune), selectedIcon: const Icon(Icons.tune), label: tr('tSet')),
           ],
         ),
       ),
@@ -480,7 +707,6 @@ class ScreenHeader extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(24, 16, 24, 12),
         child: Row(children: [
           Expanded(child: Text(title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700))),
-          const LangButton(),
         ]),
       );
 }
@@ -544,7 +770,7 @@ class Seg<T> extends StatelessWidget {
   }
 }
 
-Map<int, String> dayChips() => {for (final d in _weekOrder) d: dayName(d)};
+Map<int, String> dayChips() => {for (final d in store.weekOrder) d: dayName(d)};
 
 class ItemCard extends StatelessWidget {
   const ItemCard(this.item, {super.key});
@@ -582,6 +808,7 @@ class ItemCard extends StatelessWidget {
         ),
         IconButton.filledTonal(
           tooltip: tr(item.on ? 'off' : 'on'),
+          style: kIconStyle,
           icon: Icon(item.on ? Icons.notifications_active : Icons.notifications_none),
           onPressed: () {
             store.toggle(item);
@@ -629,6 +856,18 @@ class TodayPage extends StatelessWidget {
                   '${fm(nx.item.start)} – ${fm(nx.item.end)}${nx.item.room != null ? ' · ${T(nx.item.room!)}' : ''}',
                   style: const TextStyle(color: Colors.white, fontSize: 14),
                 ),
+                if (nx.minutes != null) ...[
+                  const SizedBox(height: 14),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(3),
+                    child: LinearProgressIndicator(
+                      value: (1 - nx.minutes! / 120).clamp(0.0, 1.0).toDouble(),
+                      minHeight: 6,
+                      backgroundColor: Colors.white.withAlpha(70),
+                      valueColor: const AlwaysStoppedAnimation(Colors.white),
+                    ),
+                  ),
+                ],
               ]),
       ),
       SectionTitle(tr('sch')),
@@ -690,15 +929,22 @@ class _Tile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return GestureDetector(
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => Scaffold(body: SafeArea(child: AddPage(edit: item))),
+      )),
+      child: Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(color: kindColor(item.kind), borderRadius: BorderRadius.circular(20)),
       child: Column(mainAxisAlignment: MainAxisAlignment.spaceBetween, crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-          decoration: BoxDecoration(color: Colors.white.withAlpha(56), borderRadius: BorderRadius.circular(8)),
-          child: Text(kindLabel(item.kind), style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
-        ),
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+            decoration: BoxDecoration(color: Colors.white.withAlpha(56), borderRadius: BorderRadius.circular(8)),
+            child: Text(kindLabel(item.kind), style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+          ),
+          const Icon(Icons.edit_outlined, size: 18, color: Colors.white),
+        ]),
         Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(T(item.title), maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700, height: 1.4)),
           const SizedBox(height: 4),
@@ -709,7 +955,7 @@ class _Tile extends StatelessWidget {
           if (item.room != null) Text(T(item.room!), style: const TextStyle(color: Colors.white, fontSize: 12)),
         ]),
       ]),
-    );
+    ));
   }
 }
 
@@ -719,11 +965,8 @@ class _AddTile extends StatelessWidget {
     return InkWell(
       borderRadius: BorderRadius.circular(20),
       onTap: () => store.goTab(2),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: lineColor(context), width: 2),
-        ),
+      child: _Dashed(
+        color: lineColor(context),
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           const Icon(Icons.add_circle_outline, size: 32, color: kAcc),
           const SizedBox(height: 6),
@@ -734,10 +977,129 @@ class _AddTile extends StatelessWidget {
   }
 }
 
+// ───────────────────────── Settings ─────────────────────────
+
+class SettingsPage extends StatelessWidget {
+  const SettingsPage({super.key});
+
+  Widget _card(BuildContext c, String title, List<Widget> kids) => Container(
+        margin: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+        decoration: cardDeco(c, r: 20),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kAcc)),
+          const SizedBox(height: 10),
+          ...kids,
+        ]),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final platformDark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
+    final isDark = store.mode == ThemeMode.dark || (store.mode == ThemeMode.system && platformDark);
+    return ListView(padding: const EdgeInsets.only(bottom: 16), children: [
+      ScreenHeader(tr('tSet')),
+      _card(context, tr('theme'), [
+        Seg<ThemeMode>(
+          items: {ThemeMode.light: tr('light'), ThemeMode.dark: tr('darkT')},
+          value: isDark ? ThemeMode.dark : ThemeMode.light,
+          onChanged: store.setMode,
+        ),
+      ]),
+      _card(context, tr('langT'), [
+        Seg<String>(
+          items: const {'ar': 'العربية', 'en': 'English'},
+          value: store.lang,
+          onChanged: store.setLang,
+        ),
+      ]),
+      _card(context, tr('notif'), [
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(tr('notifAll'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+          value: store.notify,
+          onChanged: store.setNotify,
+        ),
+        const SizedBox(height: 4),
+        Text(tr('defRem'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: mutColor(context))),
+        const SizedBox(height: 4),
+        Seg<int>(
+          items: {for (final m in [15, 30, 60]) m: nd(_rl[store.lang]![m]!)},
+          value: store.defRemind,
+          onChanged: store.setDefRemind,
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: OutlinedButton.icon(
+            onPressed: Notifier.test,
+            icon: const Icon(Icons.notifications_active_outlined),
+            label: Text(tr('testN')),
+          ),
+        ),
+      ]),
+      _card(context, tr('tSched'), [
+        Text(tr('firstD'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: mutColor(context))),
+        const SizedBox(height: 4),
+        Seg<int>(
+          items: {6: tr('sat'), 0: tr('sun')},
+          value: store.firstDay,
+          onChanged: store.setFirstDay,
+        ),
+        const SizedBox(height: 12),
+        Text(tr('timeF'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: mutColor(context))),
+        const SizedBox(height: 4),
+        Seg<bool>(
+          items: {false: tr('h12'), true: tr('h24')},
+          value: store.h24,
+          onChanged: store.setH24,
+        ),
+      ]),
+      Center(child: Text('${tr('name')} · 1.0', style: TextStyle(color: mutColor(context)))),
+    ]);
+  }
+}
+
+class _Dashed extends StatelessWidget {
+  const _Dashed({required this.color, required this.child});
+  final Color color;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) =>
+      CustomPaint(painter: _DashedBorder(color), child: SizedBox.expand(child: child));
+}
+
+class _DashedBorder extends CustomPainter {
+  _DashedBorder(this.color);
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    final path = Path()..addRRect(RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(20)));
+    for (final m in path.computeMetrics()) {
+      double d = 0;
+      while (d < m.length) {
+        canvas.drawPath(m.extractPath(d, d + 6), paint);
+        d += 11;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedBorder old) => old.color != color;
+}
+
 // ───────────────────────── Add reminder ─────────────────────────
 
 class AddPage extends StatefulWidget {
-  const AddPage({super.key});
+  const AddPage({super.key, this.edit});
+  final Item? edit; // when set, the page edits this reminder
 
   @override
   State<AddPage> createState() => _AddPageState();
@@ -749,8 +1111,23 @@ class _AddPageState extends State<AddPage> {
   int _day = store.tdx;
   int _from = 540;
   int _to = 630;
-  int _remind = 30;
+  int _remind = store.defRemind;
   bool _weekly = true;
+
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.edit;
+    if (e != null) {
+      _ctrl.text = T(e.title);
+      _kind = e.kind;
+      _day = e.day;
+      _from = e.start;
+      _to = e.end > e.start ? e.end : e.start + 60;
+      _remind = e.remind;
+      _weekly = e.weekly;
+    }
+  }
 
   @override
   void dispose() {
@@ -785,20 +1162,42 @@ class _AddPageState extends State<AddPage> {
       messenger.showSnackBar(SnackBar(content: Text(tr('terr'))));
       return;
     }
-    store.add(Item(
-      id: DateTime.now().millisecondsSinceEpoch,
-      title: {'ar': title, 'en': title},
+    final e = widget.edit;
+    final item = Item(
+      id: e?.id ?? DateTime.now().millisecondsSinceEpoch,
+      title: (e != null && title == T(e.title)) ? e.title : {'ar': title, 'en': title},
+      room: e?.room,
+      on: e?.on ?? true,
       kind: _kind,
       day: _day,
       start: _from,
       end: _kind == Kind.due ? _from : _to,
       remind: _remind,
-    ));
+      weekly: _weekly,
+    );
+    if (e != null) {
+      store.update(item);
+    } else {
+      store.add(item);
+    }
     messenger
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(tr('saved'))));
     store.sel = _day;
-    store.goTab(1);
+    if (e != null) {
+      Navigator.of(context).pop();
+    } else {
+      store.goTab(1);
+    }
+  }
+
+  void _delete() {
+    final messenger = ScaffoldMessenger.of(context);
+    store.remove(widget.edit!.id);
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(tr('deleted'))));
+    Navigator.of(context).pop();
   }
 
   Widget _section(String title, List<Widget> kids) => Container(
@@ -839,7 +1238,19 @@ class _AddPageState extends State<AddPage> {
   @override
   Widget build(BuildContext context) {
     return ListView(padding: const EdgeInsets.only(bottom: 16), children: [
-      ScreenHeader(tr('tNew')),
+      widget.edit == null
+          ? ScreenHeader(tr('tNew'))
+          : Padding(
+              padding: const EdgeInsets.fromLTRB(12, 16, 24, 12),
+              child: Row(children: [
+                IconButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const BackButtonIcon(),
+                  tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+                ),
+                Text(tr('editT'), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+              ]),
+            ),
       _section(tr('details'), [
         _field(
           tr('course'),
@@ -888,8 +1299,12 @@ class _AddPageState extends State<AddPage> {
       ]),
       Padding(
         padding: const EdgeInsets.fromLTRB(24, 4, 24, 0),
-        child: SizedBox(
+        child: Container(
           height: 56,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [BoxShadow(color: kAcc.withAlpha(82), blurRadius: 20, offset: const Offset(0, 8))],
+          ),
           child: FilledButton.icon(
             style: FilledButton.styleFrom(
               backgroundColor: kAcc,
@@ -899,10 +1314,28 @@ class _AddPageState extends State<AddPage> {
             ),
             onPressed: _save,
             icon: const Icon(Icons.check),
-            label: Text(tr('save')),
+            label: Text(tr(widget.edit == null ? 'save' : 'saveE')),
           ),
         ),
       ),
+      if (widget.edit != null)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+          child: SizedBox(
+            height: 52,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: kWarn,
+                side: const BorderSide(color: kWarn, width: 2),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              ),
+              onPressed: _delete,
+              icon: const Icon(Icons.delete_outline),
+              label: Text(tr('del')),
+            ),
+          ),
+        ),
     ]);
   }
 }
