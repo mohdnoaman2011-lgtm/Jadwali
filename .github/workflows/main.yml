@@ -9,7 +9,7 @@ jobs:
         with:
           channel: stable
       - name: Check files
-        run: ls -R lib pubspec.yaml
+        run: ls -R lib tool pubspec.yaml
       - name: Create android folder if missing
         run: '[ -d android ] || flutter create . --platforms=android --project-name jadwali'
       - name: Relax Kotlin JVM target validation
@@ -19,6 +19,10 @@ jobs:
           sed -i '/compileOptions {/a\        isCoreLibraryDesugaringEnabled = true' android/app/build.gradle.kts
           printf '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n' >> android/app/build.gradle.kts
           grep -n "isCoreLibraryDesugaringEnabled" android/app/build.gradle.kts
+      - name: Patch Android (ringtone picker and notifications)
+        run: |
+          cp tool/MainActivity.kt android/app/src/main/kotlin/com/example/jadwali/MainActivity.kt
+          python3 tool/patch_manifest.py
       - run: flutter pub get
       - run: flutter build apk --release
       - uses: actions/upload-artifact@v4
