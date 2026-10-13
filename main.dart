@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // ───────────────────────── Constants & strings ─────────────────────────
@@ -310,14 +311,20 @@ Future<void> main() async {
 
 ThemeData _theme(Brightness b) {
   final dark = b == Brightness.dark;
-  return ThemeData(
+  final base = ThemeData(
     useMaterial3: true,
     brightness: b,
     colorScheme: ColorScheme.fromSeed(seedColor: kAcc, brightness: b),
+  );
+  return base.copyWith(
+    textTheme: GoogleFonts.cairoTextTheme(base.textTheme),
     scaffoldBackgroundColor: dark ? const Color(0xFF0E1220) : const Color(0xFFF4F6FB),
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: dark ? const Color(0xFF181E33) : Colors.white,
       indicatorColor: dark ? const Color(0xFF262E52) : const Color(0xFFE8EBFB),
+      surfaceTintColor: Colors.transparent,
+      elevation: 8,
+      shadowColor: Colors.black26,
     ),
   );
 }
@@ -420,6 +427,19 @@ class SplashScreen extends StatelessWidget {
             _feature(Icons.notifications_none, tr('f2')),
             _feature(Icons.check, tr('f3')),
             const Spacer(),
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              for (final w in [24.0, 6.0, 6.0])
+                Container(
+                  width: w,
+                  height: 6,
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withAlpha(w > 6 ? 255 : 100),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+            ]),
+            const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
               height: 56,
@@ -629,6 +649,18 @@ class TodayPage extends StatelessWidget {
                   '${fm(nx.item.start)} – ${fm(nx.item.end)}${nx.item.room != null ? ' · ${T(nx.item.room!)}' : ''}',
                   style: const TextStyle(color: Colors.white, fontSize: 14),
                 ),
+                if (nx.minutes != null) ...[
+                  const SizedBox(height: 14),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(3),
+                    child: LinearProgressIndicator(
+                      value: (1 - nx.minutes! / 120).clamp(0.0, 1.0).toDouble(),
+                      minHeight: 6,
+                      backgroundColor: Colors.white.withAlpha(70),
+                      valueColor: const AlwaysStoppedAnimation(Colors.white),
+                    ),
+                  ),
+                ],
               ]),
       ),
       SectionTitle(tr('sch')),
@@ -719,11 +751,8 @@ class _AddTile extends StatelessWidget {
     return InkWell(
       borderRadius: BorderRadius.circular(20),
       onTap: () => store.goTab(2),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: lineColor(context), width: 2),
-        ),
+      child: _Dashed(
+        color: lineColor(context),
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           const Icon(Icons.add_circle_outline, size: 32, color: kAcc),
           const SizedBox(height: 6),
@@ -732,6 +761,40 @@ class _AddTile extends StatelessWidget {
       ),
     );
   }
+}
+
+class _Dashed extends StatelessWidget {
+  const _Dashed({required this.color, required this.child});
+  final Color color;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) =>
+      CustomPaint(painter: _DashedBorder(color), child: SizedBox.expand(child: child));
+}
+
+class _DashedBorder extends CustomPainter {
+  _DashedBorder(this.color);
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    final path = Path()..addRRect(RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(20)));
+    for (final m in path.computeMetrics()) {
+      double d = 0;
+      while (d < m.length) {
+        canvas.drawPath(m.extractPath(d, d + 6), paint);
+        d += 11;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedBorder old) => old.color != color;
 }
 
 // ───────────────────────── Add reminder ─────────────────────────
@@ -888,8 +951,12 @@ class _AddPageState extends State<AddPage> {
       ]),
       Padding(
         padding: const EdgeInsets.fromLTRB(24, 4, 24, 0),
-        child: SizedBox(
+        child: Container(
           height: 56,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [BoxShadow(color: kAcc.withAlpha(82), blurRadius: 20, offset: const Offset(0, 8))],
+          ),
           child: FilledButton.icon(
             style: FilledButton.styleFrom(
               backgroundColor: kAcc,
