@@ -1,1341 +1,1765 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
-// ───────────────────────── Constants & strings ─────────────────────────
+// ───────────────────────── النصوص / Strings ─────────────────────────
 
-const kAcc = Color(0xFF3B4BDB);
-const kDeep = Color(0xFF2B37A8);
-const kWarn = Color(0xFFB4430A);
-const kTeal = Color(0xFF0B7A6B);
-
-/// Shared look for icon buttons (44×44, 12px corners) — same as the mockup.
-final kIconStyle = IconButton.styleFrom(
-  fixedSize: const Size(44, 44),
-  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-);
-
-const Map<String, Map<String, String>> _s = {
+const Map<String, Map<String, String>> _tr = {
   'ar': {
-    'name': 'جدولي',
-    'tag': 'لا تفوّت محاضرة أو موعد تسليم بعد اليوم',
-    'f1': 'جدولك الجامعي في مكان واحد',
-    'f2': 'تنبيهات ذكية قبل كل محاضرة',
-    'f3': 'تذكير بالاختبارات والتسليمات',
-    'go': 'ابدأ الآن',
-    'next': 'المحاضرة القادمة',
-    'inm': 'بعد {n} دقيقة',
-    'nonext': 'لا محاضرات قادمة اليوم',
-    'sch': 'جدول اليوم',
-    'none': 'لا توجد مواعيد لهذا اليوم',
-    'due': 'مستحقات قريبة',
-    'rb': 'تذكير قبل {r}',
-    'tHome': 'الرئيسية',
-    'tSched': 'الجدول',
-    'tNew': 'تذكير جديد',
-    'wk': 'الجدول الأسبوعي',
-    'details': 'التفاصيل',
-    'when': 'الموعد',
-    'alert': 'التنبيه',
-    'course': 'اسم المقرر',
-    'type': 'النوع',
+    'app': 'جدولي',
+    'tagline': 'جدولك الجامعي وتذكيرات محاضراتك وواجباتك واختباراتك في مكان واحد',
+    'start': 'ابدأ الآن',
+    'home': 'الرئيسية',
+    'schedule': 'الجدول',
+    'reminders': 'التذكيرات',
+    'todayTitle': 'جدول اليوم',
+    'nextLecture': 'المحاضرة القادمة',
+    'noNext': 'لا توجد محاضرات. اضغط + لإضافة محاضرتك الأولى',
+    'todayLec': 'محاضرات اليوم',
+    'viewWeek': 'عرض الأسبوع',
+    'noToday': 'لا محاضرات اليوم',
+    'weekTitle': 'الجدول الأسبوعي',
+    'noDay': 'لا محاضرات في هذا اليوم',
+    'remTitle': 'التذكيرات',
+    'upcoming': 'قادمة',
+    'completed': 'مكتملة',
+    'allDone': 'أنجزت كل التذكيرات',
+    'noneDone': 'لا توجد تذكيرات مكتملة بعد',
+    'today': 'اليوم',
+    'tomorrow': 'غداً',
+    'newReminder': 'تذكير جديد',
     'lecture': 'محاضرة',
+    'assignment': 'واجب',
     'exam': 'اختبار',
-    'dueT': 'تسليم',
+    'title': 'العنوان',
+    'subject': 'المادة',
+    'room': 'القاعة',
     'day': 'اليوم',
-    'from': 'من',
-    'to': 'إلى',
-    'remMe': 'ذكّرني قبل',
-    'repW': 'تكرار أسبوعي',
-    'save': 'حفظ التذكير',
-    'req': 'أدخل اسم المقرر',
-    'terr': 'تأكد من وقت البداية والنهاية',
-    'saved': 'تم حفظ التذكير',
-    'on': 'تم تفعيل التذكير',
-    'off': 'تم إيقاف التذكير',
-    'lang': 'English',
-    'tSet': 'الضبط',
-    'theme': 'المظهر',
+    'date': 'التاريخ',
+    'time': 'الوقت',
+    'startTime': 'وقت البداية',
+    'endTime': 'وقت الانتهاء',
+    'remindBefore': 'ذكّرني قبل',
+    'm10': '10 دقائق',
+    'h1': 'ساعة',
+    'd1': 'يوم',
+    'w1': 'أسبوع',
+    'soundRow': 'نغمة التنبيه',
+    'save': 'حفظ',
+    'saveReminder': 'حفظ التذكير',
+    'required': 'مطلوب',
+    'delete': 'حذف',
+    'editLecture': 'تعديل المحاضرة',
+    'deleteLecture': 'حذف المحاضرة',
+    'confirmDelete': 'هل تريد حذف هذه المحاضرة؟',
+    'yesDelete': 'نعم، احذف',
+    'cancel': 'إلغاء',
+    'soundTitle': 'نغمة التنبيه',
+    'phoneDefault': 'نغمة الهاتف الافتراضية',
+    'phoneDefaultSub': 'تستخدم النغمة المحددة في إعدادات هاتفك',
+    'pickFromPhone': 'اختيار نغمة من الهاتف',
+    'pickFromPhoneSub': 'من نغمات جهازك',
+    'chooseTone': 'اختيار النغمة',
+    'noToneChosen': 'لم تُختر نغمة بعد',
+    'continuous': 'تنبيه مستمر',
+    'continuousSub': 'يتكرر الصوت حتى توقفه بنفسك',
+    'repeatFor': 'مدة التكرار',
+    'untilStop': 'حتى أوقفه',
+    'min1': 'دقيقة',
+    'min5': '5 دقائق',
+    'min10': '10 دقائق',
+    'vibrate': 'اهتزاز مع النغمة',
+    'preview': 'معاينة',
+    'settings': 'الإعدادات',
+    'appearance': 'المظهر',
     'light': 'فاتح',
-    'darkT': 'داكن',
-    'langT': 'اللغة',
-    'notif': 'التنبيهات',
-    'testN': 'إرسال تنبيه تجريبي',
-    'testBody': 'هذا تنبيه تجريبي، التنبيهات تعمل',
-    'notifAll': 'تفعيل كل التنبيهات',
-    'defRem': 'وقت التنبيه الافتراضي',
-    'firstD': 'أول يوم في الأسبوع',
-    'sat': 'السبت',
-    'sun': 'الأحد',
-    'timeF': 'صيغة الوقت',
+    'dark': 'داكن',
+    'system': 'حسب النظام',
+    'language': 'اللغة',
+    'timeFormat': 'نظام الوقت',
     'h12': '12 ساعة',
     'h24': '24 ساعة',
-    'editT': 'تعديل التذكير',
-    'saveE': 'حفظ التعديلات',
-    'del': 'حذف التذكير',
-    'deleted': 'تم حذف التذكير',
+    'alarmBadge': 'تذكير',
+    'stop': 'إيقاف التنبيه',
+    'snooze': 'غفوة 5 دقائق',
+    'previewBody': 'هذه معاينة لنغمة التنبيه',
   },
   'en': {
-    'name': 'Jadwali',
-    'tag': 'Never miss a lecture or deadline again',
-    'f1': 'Your university schedule in one place',
-    'f2': 'Smart alerts before every lecture',
-    'f3': 'Reminders for exams and deadlines',
-    'go': 'Get started',
-    'next': 'Next lecture',
-    'inm': 'in {n} min',
-    'nonext': 'No more lectures today',
-    'sch': "Today's schedule",
-    'none': 'Nothing scheduled for this day',
-    'due': 'Upcoming deadlines',
-    'rb': 'Remind {r} before',
-    'tHome': 'Home',
-    'tSched': 'Schedule',
-    'tNew': 'New reminder',
-    'wk': 'Weekly schedule',
-    'details': 'Details',
-    'when': 'Schedule',
-    'alert': 'Alert',
-    'course': 'Course name',
-    'type': 'Type',
+    'app': 'Jadwali',
+    'tagline': 'Your university schedule and reminders for lectures, assignments and exams in one place',
+    'start': 'Get started',
+    'home': 'Home',
+    'schedule': 'Schedule',
+    'reminders': 'Reminders',
+    'todayTitle': "Today's schedule",
+    'nextLecture': 'Next lecture',
+    'noNext': 'No lectures yet. Tap + to add your first one',
+    'todayLec': "Today's lectures",
+    'viewWeek': 'View week',
+    'noToday': 'No lectures today',
+    'weekTitle': 'Weekly schedule',
+    'noDay': 'No lectures on this day',
+    'remTitle': 'Reminders',
+    'upcoming': 'Upcoming',
+    'completed': 'Completed',
+    'allDone': "You're all caught up",
+    'noneDone': 'No completed reminders yet',
+    'today': 'Today',
+    'tomorrow': 'Tomorrow',
+    'newReminder': 'New reminder',
     'lecture': 'Lecture',
+    'assignment': 'Assignment',
     'exam': 'Exam',
-    'dueT': 'Deadline',
+    'title': 'Title',
+    'subject': 'Subject',
+    'room': 'Room',
     'day': 'Day',
-    'from': 'From',
-    'to': 'To',
-    'remMe': 'Remind me before',
-    'repW': 'Repeat weekly',
-    'save': 'Save reminder',
-    'req': 'Enter a course name',
-    'terr': 'Check the start and end times',
-    'saved': 'Reminder saved',
-    'on': 'Reminder on',
-    'off': 'Reminder off',
-    'lang': 'العربية',
-    'tSet': 'Settings',
-    'theme': 'Appearance',
+    'date': 'Date',
+    'time': 'Time',
+    'startTime': 'Start time',
+    'endTime': 'End time',
+    'remindBefore': 'Remind me before',
+    'm10': '10 minutes',
+    'h1': '1 hour',
+    'd1': '1 day',
+    'w1': '1 week',
+    'soundRow': 'Alert sound',
+    'save': 'Save',
+    'saveReminder': 'Save reminder',
+    'required': 'Required',
+    'delete': 'Delete',
+    'editLecture': 'Edit lecture',
+    'deleteLecture': 'Delete lecture',
+    'confirmDelete': 'Delete this lecture?',
+    'yesDelete': 'Yes, delete',
+    'cancel': 'Cancel',
+    'soundTitle': 'Alert sound',
+    'phoneDefault': 'Phone default ringtone',
+    'phoneDefaultSub': 'Uses the ringtone set in your phone settings',
+    'pickFromPhone': 'Choose a tone from your phone',
+    'pickFromPhoneSub': 'From your device tones',
+    'chooseTone': 'Choose tone',
+    'noToneChosen': 'No tone chosen yet',
+    'continuous': 'Continuous alert',
+    'continuousSub': 'Sound repeats until you stop it',
+    'repeatFor': 'Repeat for',
+    'untilStop': 'Until I stop it',
+    'min1': '1 minute',
+    'min5': '5 minutes',
+    'min10': '10 minutes',
+    'vibrate': 'Vibrate with tone',
+    'preview': 'Preview',
+    'settings': 'Settings',
+    'appearance': 'Appearance',
     'light': 'Light',
-    'darkT': 'Dark',
-    'langT': 'Language',
-    'notif': 'Notifications',
-    'testN': 'Send a test alert',
-    'testBody': 'This is a test alert. Notifications are working',
-    'notifAll': 'All notifications',
-    'defRem': 'Default reminder time',
-    'firstD': 'First day of the week',
-    'sat': 'Saturday',
-    'sun': 'Sunday',
-    'timeF': 'Time format',
+    'dark': 'Dark',
+    'system': 'System',
+    'language': 'Language',
+    'timeFormat': 'Time format',
     'h12': '12-hour',
     'h24': '24-hour',
-    'editT': 'Edit reminder',
-    'saveE': 'Save changes',
-    'del': 'Delete reminder',
-    'deleted': 'Reminder deleted',
+    'alarmBadge': 'Reminder',
+    'stop': 'Stop alarm',
+    'snooze': 'Snooze 5 minutes',
+    'previewBody': 'This is a preview of your alert sound',
   },
 };
 
-const Map<String, Map<int, String>> _rl = {
-  'ar': {15: '15 د', 30: '30 د', 60: 'ساعة', 180: '3 ساعات', 1440: 'يوم'},
-  'en': {15: '15 min', 30: '30 min', 60: '1 hour', 180: '3 hours', 1440: '1 day'},
-};
+const _daysAr = ['', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت', 'الأحد'];
+const _daysEn = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const _monthsAr = ['', 'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+const _monthsEn = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-// Index 0 = Sunday … 6 = Saturday (same as the web version).
-const _arDays = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
-const _enDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const _arMonths = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
-const _enMonths = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+// أيام الأسبوع الدراسي: السبت إلى الخميس (DateTime.weekday: الإثنين=1 ... الأحد=7)
+const List<int> kWeekdays = [6, 7, 1, 2, 3, 4];
 
-String tr(String k) => _s[store.lang]![k]!;
-String T(Map<String, String> m) => m[store.lang] ?? m.values.first;
+// ───────────────────────── النماذج / Models ─────────────────────────
 
-String nd(String s) => store.ar
-    ? s.replaceAllMapped(RegExp(r'\d'), (m) => '٠١٢٣٤٥٦٧٨٩'[int.parse(m[0]!)])
-    : s;
+class Lecture {
+  Lecture({
+    required this.id,
+    required this.subject,
+    required this.weekday,
+    required this.start,
+    required this.end,
+    this.room = '',
+    this.before = 10,
+  });
 
-String fm(int m) {
-  final h = m ~/ 60;
-  final mm = (m % 60).toString().padLeft(2, '0');
-  if (store.h24) return nd('${h.toString().padLeft(2, '0')}:$mm');
-  final p = store.ar ? (h < 12 ? 'ص' : 'م') : (h < 12 ? 'AM' : 'PM');
-  return '${nd('${h % 12 == 0 ? 12 : h % 12}:$mm')} $p';
+  int id;
+  String subject;
+  int weekday; // 1..7
+  int start; // دقائق من منتصف الليل
+  int end;
+  String room;
+  int before; // دقائق
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'subject': subject,
+        'weekday': weekday,
+        'start': start,
+        'end': end,
+        'room': room,
+        'before': before,
+      };
+
+  factory Lecture.fromJson(Map<String, dynamic> j) => Lecture(
+        id: j['id'] as int,
+        subject: j['subject'] as String,
+        weekday: j['weekday'] as int,
+        start: j['start'] as int,
+        end: j['end'] as int,
+        room: (j['room'] ?? '') as String,
+        before: (j['before'] ?? 10) as int,
+      );
 }
 
-String dayName(int d) => store.ar ? _arDays[d] : _enDays[d].substring(0, 3);
-
-String rb(int m) =>
-    nd(tr('rb').replaceAll('{r}', _rl[store.lang]![m] ?? '$m'));
-
-String dateStr(DateTime d) {
-  final i = d.weekday % 7;
-  return store.ar
-      ? '${_arDays[i]} ${nd('${d.day}')} ${_arMonths[d.month - 1]}'
-      : '${_enDays[i]}, ${_enMonths[d.month - 1]} ${d.day}';
-}
-
-// ───────────────────────── Model & state ─────────────────────────
-
-enum Kind { lecture, exam, due }
-
-Color kindColor(Kind k) => switch (k) {
-      Kind.lecture => kAcc,
-      Kind.exam => kWarn,
-      Kind.due => kTeal,
-    };
-
-String kindLabel(Kind k) => tr(switch (k) {
-      Kind.lecture => 'lecture',
-      Kind.exam => 'exam',
-      Kind.due => 'dueT',
-    });
-
-class Item {
-  Item({
+class Reminder {
+  Reminder({
     required this.id,
     required this.title,
     required this.kind,
-    required this.day,
-    required this.start,
-    required this.end,
-    required this.remind,
-    this.room,
-    this.on = true,
-    this.weekly = true,
+    required this.subject,
+    required this.when,
+    required this.before,
+    this.done = false,
   });
 
-  final int id;
-  final Map<String, String> title;
-  final Kind kind;
-  final int day; // 0 = Sunday … 6 = Saturday
-  final int start; // minutes after midnight
-  final int end;
-  final int remind; // minutes before
-  final Map<String, String>? room;
-  bool on;
-  final bool weekly;
+  int id;
+  String title;
+  String kind; // assignment | exam
+  String subject;
+  DateTime when;
+  int before;
+  bool done;
 
   Map<String, dynamic> toJson() => {
         'id': id,
         'title': title,
-        'kind': kind.name,
-        'day': day,
-        'start': start,
-        'end': end,
-        'remind': remind,
-        'room': room,
-        'on': on,
-        'weekly': weekly,
+        'kind': kind,
+        'subject': subject,
+        'when': when.millisecondsSinceEpoch,
+        'before': before,
+        'done': done,
       };
 
-  factory Item.fromJson(Map<String, dynamic> j) => Item(
+  factory Reminder.fromJson(Map<String, dynamic> j) => Reminder(
         id: j['id'] as int,
-        title: Map<String, String>.from(j['title'] as Map),
-        kind: Kind.values.byName(j['kind'] as String),
-        day: j['day'] as int,
-        start: j['start'] as int,
-        end: j['end'] as int,
-        remind: j['remind'] as int,
-        room: j['room'] == null ? null : Map<String, String>.from(j['room'] as Map),
-        on: j['on'] as bool? ?? true,
-        weekly: j['weekly'] as bool? ?? true,
+        title: j['title'] as String,
+        kind: j['kind'] as String,
+        subject: (j['subject'] ?? '') as String,
+        when: DateTime.fromMillisecondsSinceEpoch(j['when'] as int),
+        before: j['before'] as int,
+        done: (j['done'] ?? false) as bool,
       );
 }
 
-class Next {
-  Next(this.item, this.minutes);
-  final Item item;
-  final int? minutes;
-}
+// ───────────────────────── حالة التطبيق / App state ─────────────────────────
 
 class AppState extends ChangeNotifier {
+  late SharedPreferences _p;
+
+  bool onboarded = false;
   String lang = 'ar';
-  List<Item> items = [];
-  int tab = 0;
-  ThemeMode mode = ThemeMode.system;
-  bool notify = true; // master switch for all alerts
-  int defRemind = 30; // default lead time for new reminders
-  int firstDay = 6; // 6 = Saturday, 0 = Sunday
-  bool h24 = false; // 24-hour clock
-  late int sel = tdx;
+  ThemeMode themeMode = ThemeMode.light;
+  bool use24 = false;
 
-  bool get ar => lang == 'ar';
+  String soundMode = 'default'; // default | custom
+  String toneUri = '';
+  String toneTitle = '';
+  bool continuous = true;
+  int repeatMin = 0; // 0 = حتى أوقفه
+  bool vibrate = true;
 
-  List<int> get weekOrder => firstDay == 6 ? [6, 0, 1, 2, 3, 4] : [0, 1, 2, 3, 4, 6];
-
-  /// Today's day index; Friday falls back to Sunday (weekend).
-  int get tdx {
-    final i = DateTime.now().weekday % 7;
-    return i == 5 ? 0 : i;
-  }
+  List<Lecture> lectures = [];
+  List<Reminder> reminders = [];
+  int _nextId = 1;
 
   Future<void> load() async {
-    final p = await SharedPreferences.getInstance();
-    lang = p.getString('lang') ?? 'ar';
-    try {
-      mode = ThemeMode.values.byName(p.getString('theme') ?? 'system');
-    } catch (_) {}
-    notify = p.getBool('notify') ?? true;
-    defRemind = p.getInt('defRemind') ?? 30;
-    firstDay = p.getInt('firstDay') ?? 6;
-    h24 = p.getBool('h24') ?? false;
-    final raw = p.getString('items');
-    try {
-      items = raw == null
-          ? _seed()
-          : (jsonDecode(raw) as List)
-              .map((e) => Item.fromJson(e as Map<String, dynamic>))
-              .toList();
-    } catch (_) {
-      items = _seed();
+    _p = await SharedPreferences.getInstance();
+    onboarded = _p.getBool('onboarded') ?? false;
+    lang = _p.getString('lang') ?? 'ar';
+    final tm = _p.getString('theme');
+    themeMode = ThemeMode.values.firstWhere((m) => m.name == tm, orElse: () => ThemeMode.light);
+    use24 = _p.getBool('use24') ?? false;
+    soundMode = _p.getString('soundMode') ?? 'default';
+    toneUri = _p.getString('toneUri') ?? '';
+    toneTitle = _p.getString('toneTitle') ?? '';
+    continuous = _p.getBool('continuous') ?? true;
+    repeatMin = _p.getInt('repeatMin') ?? 0;
+    vibrate = _p.getBool('vibrate') ?? true;
+    final raw = _p.getString('data');
+    if (raw != null) {
+      final j = jsonDecode(raw) as Map<String, dynamic>;
+      lectures = (j['lectures'] as List).map((e) => Lecture.fromJson(e as Map<String, dynamic>)).toList();
+      reminders = (j['reminders'] as List).map((e) => Reminder.fromJson(e as Map<String, dynamic>)).toList();
+      _nextId = (j['nextId'] ?? 1) as int;
     }
-    sel = tdx;
   }
 
-  Future<void> _persist() async {
-    final p = await SharedPreferences.getInstance();
-    await p.setString('lang', lang);
-    await p.setString('theme', mode.name);
-    await p.setBool('notify', notify);
-    await p.setInt('defRemind', defRemind);
-    await p.setInt('firstDay', firstDay);
-    await p.setBool('h24', h24);
-    await p.setString('items', jsonEncode(items.map((e) => e.toJson()).toList()));
+  Future<void> save() async {
+    await _p.setBool('onboarded', onboarded);
+    await _p.setString('lang', lang);
+    await _p.setString('theme', themeMode.name);
+    await _p.setBool('use24', use24);
+    await _p.setString('soundMode', soundMode);
+    await _p.setString('toneUri', toneUri);
+    await _p.setString('toneTitle', toneTitle);
+    await _p.setBool('continuous', continuous);
+    await _p.setInt('repeatMin', repeatMin);
+    await _p.setBool('vibrate', vibrate);
+    await _p.setString(
+      'data',
+      jsonEncode({
+        'lectures': lectures.map((e) => e.toJson()).toList(),
+        'reminders': reminders.map((e) => e.toJson()).toList(),
+        'nextId': _nextId,
+      }),
+    );
   }
 
-  void setLang(String l) {
-    lang = l;
-    _persist();
+  /// يغيّر الحالة ثم يحفظها ويحدّث الواجهة.
+  Future<void> update(VoidCallback change) async {
+    change();
     notifyListeners();
-    Notifier.rescheduleAll(items);
+    await save();
   }
 
-  void setMode(ThemeMode m) {
-    mode = m;
-    _persist();
-    notifyListeners();
+  int newId() => _nextId++;
+
+  bool get ar => lang == 'ar';
+  String t(String k) => _tr[lang]![k] ?? k;
+  String dayName(int weekday) => ar ? _daysAr[weekday] : _daysEn[weekday];
+  String shortDay(int weekday) {
+    final n = dayName(weekday);
+    return ar ? n : n.substring(0, 3);
   }
 
-  void update(Item n) {
-    final i = items.indexWhere((x) => x.id == n.id);
-    if (i < 0) return;
-    items[i] = n;
-    _persist();
-    notifyListeners();
-    Notifier.rescheduleAll(items);
+  String fmtMin(int m) {
+    final h = m ~/ 60;
+    final mm = (m % 60).toString().padLeft(2, '0');
+    if (use24) return '${h.toString().padLeft(2, '0')}:$mm';
+    final h12 = h % 12 == 0 ? 12 : h % 12;
+    final suffix = h < 12 ? (ar ? 'ص' : 'AM') : (ar ? 'م' : 'PM');
+    return '$h12:$mm $suffix';
   }
 
-  void remove(int id) {
-    items.removeWhere((x) => x.id == id);
-    _persist();
-    notifyListeners();
-    Notifier.rescheduleAll(items);
+  String fmtDateTime(DateTime d) => fmtMin(d.hour * 60 + d.minute);
+
+  String longDate(DateTime d) {
+    final month = ar ? _monthsAr[d.month] : _monthsEn[d.month];
+    return ar ? '${dayName(d.weekday)}، ${d.day} $month' : '${dayName(d.weekday)}, $month ${d.day}';
   }
 
-  void setNotify(bool v) {
-    notify = v;
-    _persist();
-    notifyListeners();
-    Notifier.rescheduleAll(items);
-  }
-
-  void setDefRemind(int m) {
-    defRemind = m;
-    _persist();
-    notifyListeners();
-  }
-
-  void setFirstDay(int d) {
-    firstDay = d;
-    _persist();
-    notifyListeners();
-  }
-
-  void setH24(bool v) {
-    h24 = v;
-    _persist();
-    notifyListeners();
-    Notifier.rescheduleAll(items);
-  }
-
-  void goTab(int i) {
-    tab = i;
-    notifyListeners();
-  }
-
-  void selectDay(int d) {
-    sel = d;
-    notifyListeners();
-  }
-
-  void toggle(Item i) {
-    i.on = !i.on;
-    _persist();
-    notifyListeners();
-    Notifier.rescheduleAll(items);
-  }
-
-  void add(Item i) {
-    items.add(i);
-    _persist();
-    notifyListeners();
-    Notifier.rescheduleAll(items);
-  }
-
-  List<Item> dayItems(int d) => items.where((i) => i.day == d && i.kind != Kind.due).toList()
-    ..sort((a, b) => a.start.compareTo(b.start));
-
-  List<Item> dues() => items.where((i) => i.kind == Kind.due).toList()
-    ..sort((a, b) => a.day != b.day ? a.day.compareTo(b.day) : a.start.compareTo(b.start));
-
-  Next? next() {
-    final l = dayItems(tdx);
+  String dayLabel(DateTime d) {
     final now = DateTime.now();
-    if (now.weekday % 7 == tdx) {
-      final nm = now.hour * 60 + now.minute;
-      for (final i in l) {
-        if (i.start > nm) return Next(i, i.start - nm);
-      }
-      return null;
+    final a = DateTime(now.year, now.month, now.day);
+    final b = DateTime(d.year, d.month, d.day);
+    final diff = b.difference(a).inDays;
+    if (diff == 0) return t('today');
+    if (diff == 1) return t('tomorrow');
+    return longDate(d);
+  }
+
+  String inText(Duration d) {
+    final m = d.inMinutes;
+    if (m < 1) return ar ? 'الآن' : 'now';
+    if (m < 60) return ar ? 'بعد $m دقيقة' : 'in $m min';
+    if (m < 1440) {
+      final h = m ~/ 60;
+      return ar ? 'بعد $h ساعة' : 'in $h h';
     }
-    return l.isEmpty ? null : Next(l.first, null);
+    final days = m ~/ 1440;
+    return ar ? 'بعد $days يوم' : 'in $days d';
   }
 }
 
-final store = AppState();
+class AppScope extends InheritedNotifier<AppState> {
+  const AppScope({super.key, required AppState app, required super.child}) : super(notifier: app);
 
-Map<String, String> _b(String ar, String en) => {'ar': ar, 'en': en};
+  static AppState of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<AppScope>()!.notifier!;
+}
 
-List<Item> _seed() => [
-      Item(id: 1, title: _b('هياكل البيانات', 'Data Structures'), kind: Kind.lecture, day: 1, start: 540, end: 630, remind: 30, room: _b('قاعة 214', 'Room 214')),
-      Item(id: 2, title: _b('التفاضل والتكامل', 'Calculus'), kind: Kind.lecture, day: 1, start: 660, end: 750, remind: 15, room: _b('قاعة 103', 'Room 103')),
-      Item(id: 3, title: _b('مختبر الفيزياء', 'Physics Lab'), kind: Kind.lecture, day: 1, start: 780, end: 870, remind: 60, room: _b('مبنى العلوم', 'Science Bldg')),
-      Item(id: 4, title: _b('تسليم واجب الإحصاء', 'Statistics assignment due'), kind: Kind.due, day: 2, start: 1439, end: 1439, remind: 180),
-      Item(id: 5, title: _b('التفاضل والتكامل', 'Calculus'), kind: Kind.lecture, day: 0, start: 540, end: 630, remind: 15, room: _b('قاعة 103', 'Room 103')),
-      Item(id: 6, title: _b('هياكل البيانات', 'Data Structures'), kind: Kind.lecture, day: 2, start: 540, end: 630, remind: 30, room: _b('قاعة 214', 'Room 214')),
-      Item(id: 7, title: _b('مختبر الفيزياء', 'Physics Lab'), kind: Kind.lecture, day: 2, start: 780, end: 870, remind: 60, room: _b('مبنى العلوم', 'Science Bldg')),
-      Item(id: 8, title: _b('اختبار التفاضل النصفي', 'Calculus midterm'), kind: Kind.exam, day: 3, start: 840, end: 930, remind: 1440, room: _b('قاعة 103', 'Room 103')),
-      Item(id: 9, title: _b('هياكل البيانات', 'Data Structures'), kind: Kind.lecture, day: 4, start: 540, end: 630, remind: 30, room: _b('قاعة 214', 'Room 214')),
-    ];
+// ───────────────────────── أدوات مساعدة / Helpers ─────────────────────────
 
-// ───────────────────────── Notifications ─────────────────────────
+DateTime nextOccurrence(int weekday, int minutes, DateTime from) {
+  var d = DateTime(from.year, from.month, from.day, minutes ~/ 60, minutes % 60);
+  for (var i = 0; i < 9; i++) {
+    if (d.weekday == weekday && !d.isBefore(from)) return d;
+    d = DateTime(d.year, d.month, d.day + 1, minutes ~/ 60, minutes % 60);
+  }
+  return d;
+}
 
-class Notifier {
-  static final _p = FlutterLocalNotificationsPlugin();
-  static bool _ready = false;
+Color subjectColor(String s) {
+  const palette = [
+    Color(0xFF5B5BD6),
+    Color(0xFF0B7A6B),
+    Color(0xFFD98A1F),
+    Color(0xFFC2386B),
+    Color(0xFF3157C8),
+  ];
+  var h = 0;
+  for (final c in s.codeUnits) {
+    h = (h * 31 + c) & 0x7fffffff;
+  }
+  return palette[h % palette.length];
+}
 
-  static const _details = NotificationDetails(
-    android: AndroidNotificationDetails(
-      'jadwali_reminders',
-      'Reminders',
-      channelDescription: 'Lecture, exam and deadline reminders',
-      importance: Importance.high,
-      priority: Priority.high,
-    ),
-    iOS: DarwinNotificationDetails(),
+// ───────────────────────── الإشعارات / Notifications ─────────────────────────
+
+final FlutterLocalNotificationsPlugin plugin = FlutterLocalNotificationsPlugin();
+final GlobalKey<NavigatorState> navKey = GlobalKey<NavigatorState>();
+const MethodChannel _ringtoneChannel = MethodChannel('jadwali/ringtone');
+
+String _payload(int id, String title, String sub) => jsonEncode({'id': id, 'title': title, 'sub': sub});
+
+void openAlarm(String? payload) {
+  if (payload == null) return;
+  try {
+    final j = jsonDecode(payload) as Map<String, dynamic>;
+    navKey.currentState?.push(MaterialPageRoute<void>(
+      builder: (_) => AlarmPage(id: j['id'] as int, title: j['title'] as String, sub: j['sub'] as String),
+    ));
+  } catch (_) {}
+}
+
+Future<void> initNotifications() async {
+  tzdata.initializeTimeZones();
+  try {
+    final name = await FlutterTimezone.getLocalTimezone();
+    tz.setLocalLocation(tz.getLocation(name));
+  } catch (_) {}
+
+  await plugin.initialize(
+    const InitializationSettings(android: AndroidInitializationSettings('@mipmap/ic_launcher')),
+    onDidReceiveNotificationResponse: (r) => openAlarm(r.payload),
   );
 
-  static Future<void> init() async {
-    try {
-      tzdata.initializeTimeZones();
-      try {
-        tz.setLocalLocation(tz.getLocation(await FlutterTimezone.getLocalTimezone()));
-      } catch (_) {}
-      await _p.initialize(const InitializationSettings(
-        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-        iOS: DarwinInitializationSettings(),
-      ));
-      await _p
-          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-          ?.requestNotificationsPermission();
-      _ready = true;
-    } catch (_) {}
-  }
+  final android = plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+  await android?.requestNotificationsPermission();
+  try {
+    await android?.requestExactAlarmsPermission();
+  } catch (_) {}
 
-  /// First moment the reminder should fire (start time minus the lead time).
-  static tz.TZDateTime _next(Item i) {
-    final now = tz.TZDateTime.now(tz.local);
-    final wd = i.day == 0 ? 7 : i.day; // DateTime: Mon=1 … Sun=7
-    for (var add = 0; add < 15; add++) {
-      final d = now.add(Duration(days: add));
-      if (d.weekday != wd) continue;
-      final t = tz.TZDateTime(tz.local, d.year, d.month, d.day).add(Duration(minutes: i.start - i.remind));
-      if (t.isAfter(now)) return t;
-    }
-    return now.add(const Duration(minutes: 1));
-  }
-
-  static Future<void> rescheduleAll(List<Item> items) async {
-    if (!_ready) return;
-    try {
-      await _p.cancelAll();
-      if (!store.notify) return;
-      for (final i in items) {
-        if (!i.on) continue;
-        await _p.zonedSchedule(
-          i.id % 2147483647,
-          T(i.title),
-          '${kindLabel(i.kind)} · ${fm(i.start)}${i.room != null ? ' · ${T(i.room!)}' : ''}',
-          _next(i),
-          _details,
-          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-          uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-          matchDateTimeComponents:
-              (i.weekly && i.kind != Kind.due) ? DateTimeComponents.dayOfWeekAndTime : null,
-        );
-      }
-    } catch (_) {}
-  }
-
-  static Future<void> test() async {
-    if (!_ready) return;
-    await _p.show(1, tr('name'), tr('testBody'), _details);
+  final launch = await plugin.getNotificationAppLaunchDetails();
+  if (launch?.didNotificationLaunchApp ?? false) {
+    final payload = launch!.notificationResponse?.payload;
+    WidgetsBinding.instance.addPostFrameCallback((_) => openAlarm(payload));
   }
 }
 
-// ───────────────────────── App & theme ─────────────────────────
+NotificationDetails _details(AppState a) {
+  final custom = a.soundMode == 'custom' && a.toneUri.isNotEmpty;
+  var h = 0;
+  if (custom) {
+    for (final c in a.toneUri.codeUnits) {
+      h = (h * 31 + c) & 0x7fffffff;
+    }
+  }
+  // القناة في أندرويد لا تتغير بعد إنشائها، لذلك يتغير معرّفها مع الإعدادات.
+  final channelId = 'jadwali_${h}_${a.continuous ? 1 : 0}_${a.vibrate ? 1 : 0}';
+  return NotificationDetails(
+    android: AndroidNotificationDetails(
+      channelId,
+      'Jadwali alerts',
+      channelDescription: 'Lecture, assignment and exam alerts',
+      importance: Importance.max,
+      priority: Priority.high,
+      category: AndroidNotificationCategory.alarm,
+      audioAttributesUsage: AudioAttributesUsage.alarm,
+      playSound: true,
+      sound: custom ? UriAndroidNotificationSound(a.toneUri) : null,
+      enableVibration: a.vibrate,
+      fullScreenIntent: true,
+      autoCancel: true,
+      timeoutAfter: (a.continuous && a.repeatMin > 0) ? a.repeatMin * 60000 : null,
+      // FLAG_INSISTENT = 4: يكرر الصوت حتى يتم إغلاق الإشعار
+      additionalFlags: a.continuous ? Int32List.fromList(<int>[4]) : null,
+    ),
+  );
+}
+
+Future<void> _schedule(
+  int id,
+  String title,
+  String body,
+  DateTime at,
+  AppState a, {
+  DateTimeComponents? repeat,
+}) async {
+  final when = tz.TZDateTime.from(at, tz.local);
+  Future<void> go(AndroidScheduleMode mode) => plugin.zonedSchedule(
+        id,
+        title,
+        body,
+        when,
+        _details(a),
+        payload: _payload(id, title, body),
+        androidScheduleMode: mode,
+        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: repeat,
+      );
+  try {
+    await go(AndroidScheduleMode.exactAllowWhileIdle);
+  } catch (_) {
+    await go(AndroidScheduleMode.inexactAllowWhileIdle);
+  }
+}
+
+Future<void> scheduleReminder(AppState a, Reminder r) async {
+  await plugin.cancel(r.id);
+  if (r.done) return;
+  final at = r.when.subtract(Duration(minutes: r.before));
+  if (at.isBefore(DateTime.now())) return;
+  final body = r.subject.isEmpty ? a.t(r.kind) : '${r.subject} · ${a.t(r.kind)}';
+  await _schedule(r.id, r.title, body, at, a);
+}
+
+Future<void> scheduleLecture(AppState a, Lecture l) async {
+  await plugin.cancel(l.id);
+  final now = DateTime.now();
+  var start = nextOccurrence(l.weekday, l.start, now);
+  var at = start.subtract(Duration(minutes: l.before));
+  while (at.isBefore(now)) {
+    start = DateTime(start.year, start.month, start.day + 7, l.start ~/ 60, l.start % 60);
+    at = start.subtract(Duration(minutes: l.before));
+  }
+  final body = l.room.isEmpty ? a.fmtMin(l.start) : '${a.fmtMin(l.start)} · ${a.t('room')} ${l.room}';
+  await _schedule(l.id, l.subject, body, at, a, repeat: DateTimeComponents.dayOfWeekAndTime);
+}
+
+/// يعيد جدولة كل شيء (بعد تغيير إعدادات النغمة أو اللغة أو نظام الوقت).
+Future<void> rescheduleAll(AppState a) async {
+  for (final l in a.lectures) {
+    await scheduleLecture(a, l);
+  }
+  for (final r in a.reminders) {
+    await scheduleReminder(a, r);
+  }
+}
+
+Future<void> previewAlert(AppState a) async {
+  const id = 2147483000;
+  final payload = _payload(id, a.t('soundTitle'), a.t('previewBody'));
+  await plugin.show(id, a.t('soundTitle'), a.t('previewBody'), _details(a), payload: payload);
+  openAlarm(payload);
+}
+
+Future<void> pickRingtone(AppState a) async {
+  try {
+    final res = await _ringtoneChannel.invokeMethod<Map<dynamic, dynamic>>('pick', {'current': a.toneUri});
+    if (res != null) {
+      final uri = (res['uri'] ?? '') as String;
+      final title = (res['title'] ?? '') as String;
+      if (uri.isNotEmpty) {
+        await a.update(() {
+          a.toneUri = uri;
+          a.toneTitle = title;
+          a.soundMode = 'custom';
+        });
+      }
+    }
+  } catch (_) {}
+}
+
+// ───────────────────────── التطبيق / App ─────────────────────────
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await store.load();
-  await Notifier.init();
-  Notifier.rescheduleAll(store.items);
-  runApp(const JadwaliApp());
+  final app = AppState();
+  await app.load();
+  await initNotifications();
+  runApp(JadwaliApp(app: app));
 }
 
 ThemeData _theme(Brightness b) {
-  final dark = b == Brightness.dark;
   final base = ThemeData(
     useMaterial3: true,
-    brightness: b,
-    colorScheme: ColorScheme.fromSeed(seedColor: kAcc, brightness: b),
+    colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0B7A6B), brightness: b),
   );
-  return base.copyWith(
-    textTheme: GoogleFonts.cairoTextTheme(base.textTheme),
-    scaffoldBackgroundColor: dark ? const Color(0xFF0E1220) : const Color(0xFFF4F6FB),
-    navigationBarTheme: NavigationBarThemeData(
-      backgroundColor: dark ? const Color(0xFF181E33) : Colors.white,
-      indicatorColor: dark ? const Color(0xFF262E52) : const Color(0xFFE8EBFB),
-      surfaceTintColor: Colors.transparent,
-      elevation: 8,
-      shadowColor: Colors.black26,
+  return base.copyWith(textTheme: GoogleFonts.ibmPlexSansArabicTextTheme(base.textTheme));
+}
+
+class JadwaliApp extends StatelessWidget {
+  const JadwaliApp({super.key, required this.app});
+  final AppState app;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppScope(
+      app: app,
+      child: Builder(builder: (context) {
+        final a = AppScope.of(context);
+        return MaterialApp(
+          navigatorKey: navKey,
+          debugShowCheckedModeBanner: false,
+          title: a.t('app'),
+          locale: Locale(a.lang),
+          supportedLocales: const [Locale('ar'), Locale('en')],
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          themeMode: a.themeMode,
+          theme: _theme(Brightness.light),
+          darkTheme: _theme(Brightness.dark),
+          home: a.onboarded ? const ShellPage() : const SplashPage(),
+        );
+      }),
+    );
+  }
+}
+
+// ───────────────────────── شاشة البداية ─────────────────────────
+
+class SplashPage extends StatelessWidget {
+  const SplashPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final a = AppScope.of(context);
+    final cs = Theme.of(context).colorScheme;
+    return Scaffold(
+      backgroundColor: cs.primary,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 40),
+          child: Column(
+            children: [
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 104,
+                      height: 104,
+                      decoration: BoxDecoration(color: cs.onPrimary, borderRadius: BorderRadius.circular(30)),
+                      child: Icon(Icons.event_available, size: 56, color: cs.primary),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(a.t('app'),
+                        style: TextStyle(fontSize: 44, fontWeight: FontWeight.w700, color: cs.onPrimary)),
+                    const SizedBox(height: 16),
+                    Text(
+                      a.t('tagline'),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 18, height: 1.7, color: cs.onPrimary),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: cs.onPrimary,
+                    foregroundColor: cs.primary,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                  ),
+                  onPressed: () => a.update(() => a.onboarded = true),
+                  child: Text(a.t('start'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ───────────────────────── الهيكل الرئيسي ─────────────────────────
+
+class ShellPage extends StatefulWidget {
+  const ShellPage({super.key});
+
+  @override
+  State<ShellPage> createState() => _ShellPageState();
+}
+
+class _ShellPageState extends State<ShellPage> {
+  int index = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final a = AppScope.of(context);
+    final pages = [
+      HomePage(onOpenWeek: () => setState(() => index = 1)),
+      const WeekPage(),
+      const RemindersPage(),
+    ];
+    return Scaffold(
+      body: SafeArea(child: pages[index]),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const AddPage())),
+        icon: const Icon(Icons.add),
+        label: Text(a.t('newReminder')),
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: index,
+        onDestinationSelected: (i) => setState(() => index = i),
+        destinations: [
+          NavigationDestination(icon: const Icon(Icons.home_outlined), selectedIcon: const Icon(Icons.home), label: a.t('home')),
+          NavigationDestination(icon: const Icon(Icons.calendar_month_outlined), selectedIcon: const Icon(Icons.calendar_month), label: a.t('schedule')),
+          NavigationDestination(icon: const Icon(Icons.notifications_outlined), selectedIcon: const Icon(Icons.notifications), label: a.t('reminders')),
+        ],
+      ),
+    );
+  }
+}
+
+// ───────────────────────── الرئيسية ─────────────────────────
+
+class HomePage extends StatelessWidget {
+  const HomePage({super.key, required this.onOpenWeek});
+  final VoidCallback onOpenWeek;
+
+  @override
+  Widget build(BuildContext context) {
+    final a = AppScope.of(context);
+    final cs = Theme.of(context).colorScheme;
+    final now = DateTime.now();
+
+    final today = a.lectures.where((l) => l.weekday == now.weekday).toList()
+      ..sort((x, y) => x.start.compareTo(y.start));
+
+    Lecture? next;
+    DateTime? nextAt;
+    for (final l in a.lectures) {
+      final o = nextOccurrence(l.weekday, l.start, now);
+      if (nextAt == null || o.isBefore(nextAt)) {
+        next = l;
+        nextAt = o;
+      }
+    }
+
+    final due = a.reminders.where((r) => !r.done && r.when.isAfter(now)).toList()
+      ..sort((x, y) => x.when.compareTo(y.when));
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 96),
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(a.longDate(now), style: TextStyle(color: cs.onSurfaceVariant)),
+                  Text(a.t('todayTitle'), style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w700)),
+                ],
+              ),
+            ),
+            IconButton.filledTonal(
+              tooltip: a.t('settings'),
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const SettingsPage())),
+              icon: const Icon(Icons.settings_outlined),
+            ),
+          ],
+        ),
+        const SizedBox(height: 18),
+        if (next == null)
+          Card(
+            child: Padding(padding: const EdgeInsets.all(20), child: Text(a.t('noNext'))),
+          )
+        else
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(color: cs.primary, borderRadius: BorderRadius.circular(24)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(color: cs.onPrimary.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(12)),
+                  child: Text(a.t('nextLecture'), style: TextStyle(color: cs.onPrimary, fontWeight: FontWeight.w600)),
+                ),
+                const SizedBox(height: 14),
+                Text(next.subject, style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700, color: cs.onPrimary)),
+                const SizedBox(height: 10),
+                Row(children: [
+                  Icon(Icons.schedule, size: 18, color: cs.onPrimary),
+                  const SizedBox(width: 8),
+                  Text('${a.dayLabel(nextAt!)} · ${a.fmtMin(next.start)} – ${a.fmtMin(next.end)}', style: TextStyle(color: cs.onPrimary)),
+                ]),
+                if (next.room.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Row(children: [
+                    Icon(Icons.place_outlined, size: 18, color: cs.onPrimary),
+                    const SizedBox(width: 8),
+                    Text('${a.t('room')} ${next.room}', style: TextStyle(color: cs.onPrimary)),
+                  ]),
+                ],
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(color: cs.onPrimary, borderRadius: BorderRadius.circular(20)),
+                  child: Text(a.inText(nextAt!.difference(now)), style: TextStyle(color: cs.primary, fontWeight: FontWeight.w700)),
+                ),
+              ],
+            ),
+          ),
+        const SizedBox(height: 22),
+        Row(
+          children: [
+            Expanded(child: Text(a.t('todayLec'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700))),
+            TextButton(onPressed: onOpenWeek, child: Text(a.t('viewWeek'))),
+          ],
+        ),
+        if (today.isEmpty)
+          Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Text(a.t('noToday'), style: TextStyle(color: cs.onSurfaceVariant)))
+        else
+          for (final l in today) LectureTile(lecture: l),
+        if (due.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Card(
+            color: const Color(0xFFFBEBCB),
+            child: ListTile(
+              title: Text('${a.dayLabel(due.first.when)} · ${a.fmtDateTime(due.first.when)}', style: const TextStyle(fontSize: 13, color: Color(0xFF5E3C00))),
+              subtitle: Text(due.first.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF5E3C00))),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class LectureTile extends StatelessWidget {
+  const LectureTile({super.key, required this.lecture});
+  final Lecture lecture;
+
+  @override
+  Widget build(BuildContext context) {
+    final a = AppScope.of(context);
+    final cs = Theme.of(context).colorScheme;
+    final color = subjectColor(lecture.subject);
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => showLectureActions(context, lecture),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Container(width: 6, height: 52, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(3))),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(a.fmtMin(lecture.start), style: const TextStyle(fontWeight: FontWeight.w700)),
+                  Text(a.fmtMin(lecture.end), style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+                ],
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(lecture.subject, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                    if (lecture.room.isNotEmpty)
+                      Text('${a.t('room')} ${lecture.room}', style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+                  ],
+                ),
+              ),
+              Icon(Icons.more_horiz, color: cs.outline),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// ورقة سفلية بخيارات المحاضرة: تعديل أو حذف (مع تأكيد).
+Future<void> showLectureActions(BuildContext context, Lecture l) {
+  final a = AppScope.of(context);
+  final cs = Theme.of(context).colorScheme;
+  return showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    builder: (sheetCtx) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(width: 6, height: 48, decoration: BoxDecoration(color: subjectColor(l.subject), borderRadius: BorderRadius.circular(3))),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(l.subject, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+                      Text(
+                        [
+                          '${a.dayName(l.weekday)} · ${a.fmtMin(l.start)} – ${a.fmtMin(l.end)}',
+                          if (l.room.isNotEmpty) '${a.t('room')} ${l.room}',
+                        ].join(' · '),
+                        style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            SizedBox(
+              width: double.infinity,
+              height: 54,
+              child: FilledButton.tonalIcon(
+                onPressed: () {
+                  Navigator.of(sheetCtx).pop();
+                  Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => AddPage(edit: l)));
+                },
+                icon: const Icon(Icons.edit_outlined),
+                label: Text(a.t('editLecture')),
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              height: 54,
+              child: FilledButton.tonalIcon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: cs.errorContainer,
+                  foregroundColor: cs.onErrorContainer,
+                ),
+                onPressed: () async {
+                  Navigator.of(sheetCtx).pop();
+                  final ok = await showDialog<bool>(
+                    context: context,
+                    builder: (d) => AlertDialog(
+                      title: Text(a.t('confirmDelete')),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.of(d).pop(false), child: Text(a.t('cancel'))),
+                        FilledButton(
+                          style: FilledButton.styleFrom(backgroundColor: cs.error, foregroundColor: cs.onError),
+                          onPressed: () => Navigator.of(d).pop(true),
+                          child: Text(a.t('yesDelete')),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (ok == true) {
+                    await plugin.cancel(l.id);
+                    await a.update(() => a.lectures.removeWhere((x) => x.id == l.id));
+                  }
+                },
+                icon: const Icon(Icons.delete_outline),
+                label: Text(a.t('deleteLecture')),
+              ),
+            ),
+          ],
+        ),
+      ),
     ),
   );
 }
 
-bool _dark(BuildContext c) => Theme.of(c).brightness == Brightness.dark;
-Color cardColor(BuildContext c) => _dark(c) ? const Color(0xFF181E33) : Colors.white;
-Color lineColor(BuildContext c) => _dark(c) ? const Color(0xFF343D5E) : const Color(0xFFC9D0E2);
-Color mutColor(BuildContext c) => _dark(c) ? const Color(0xFFA7B0C8) : const Color(0xFF4A5368);
+// ───────────────────────── الجدول الأسبوعي ─────────────────────────
 
-BoxDecoration cardDeco(BuildContext c, {double r = 16}) => BoxDecoration(
-      color: cardColor(c),
-      borderRadius: BorderRadius.circular(r),
-      boxShadow: [BoxShadow(color: Colors.black.withAlpha(16), blurRadius: 14, offset: const Offset(0, 4))],
-    );
-
-class JadwaliApp extends StatelessWidget {
-  const JadwaliApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: store,
-      builder: (context, _) => MaterialApp(
-        debugShowCheckedModeBanner: false,
-        title: tr('name'),
-        locale: Locale(store.lang),
-        supportedLocales: const [Locale('ar'), Locale('en')],
-        localizationsDelegates: const [
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        themeMode: store.mode,
-        theme: _theme(Brightness.light),
-        darkTheme: _theme(Brightness.dark),
-        home: const SplashScreen(),
-      ),
-    );
-  }
-}
-
-class LangButton extends StatelessWidget {
-  const LangButton({super.key, this.light = false});
-  final bool light;
-
-  @override
-  Widget build(BuildContext context) {
-    return IconButton.filledTonal(
-      tooltip: tr('lang'),
-      icon: const Icon(Icons.language),
-      style: light
-          ? IconButton.styleFrom(
-              backgroundColor: Colors.white24,
-              foregroundColor: Colors.white,
-              fixedSize: const Size(44, 44),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            )
-          : kIconStyle,
-      onPressed: () => store.setLang(store.ar ? 'en' : 'ar'),
-    );
-  }
-}
-
-// ───────────────────────── Splash ─────────────────────────
-
-class SplashScreen extends StatelessWidget {
-  const SplashScreen({super.key});
-
-  Widget _feature(IconData icon, String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 18),
-        child: Row(children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(color: Colors.white.withAlpha(41), borderRadius: BorderRadius.circular(14)),
-            child: Icon(icon, color: Colors.white),
-          ),
-          const SizedBox(width: 14),
-          Expanded(child: Text(text, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600))),
-        ]),
-      );
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: kDeep,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(28, 12, 28, 28),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Align(alignment: AlignmentDirectional.centerEnd, child: LangButton(light: true)),
-            const SizedBox(height: 40),
-            Container(
-              width: 88,
-              height: 88,
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(26)),
-              child: const Icon(Icons.edit_calendar_rounded, size: 48, color: kDeep),
-            ),
-            const SizedBox(height: 24),
-            Text(tr('name'), style: const TextStyle(color: Colors.white, fontSize: 44, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 8),
-            Text(tr('tag'), style: const TextStyle(color: Color(0xFFE3E6FF), fontSize: 18, height: 1.6)),
-            const SizedBox(height: 36),
-            _feature(Icons.calendar_month_outlined, tr('f1')),
-            _feature(Icons.notifications_none, tr('f2')),
-            _feature(Icons.check, tr('f3')),
-            const Spacer(),
-            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              for (final w in [24.0, 6.0, 6.0])
-                Container(
-                  width: w,
-                  height: 6,
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withAlpha(w > 6 ? 255 : 100),
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                ),
-            ]),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: kDeep,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-                ),
-                onPressed: () => Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(builder: (_) => const Shell()),
-                ),
-                child: Text(tr('go')),
-              ),
-            ),
-          ]),
-        ),
-      ),
-    );
-  }
-}
-
-// ───────────────────────── Shell (tabs) ─────────────────────────
-
-class Shell extends StatelessWidget {
-  const Shell({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final pages = [const TodayPage(), const WeekPage(), const AddPage(), const SettingsPage()];
-    return ListenableBuilder(
-      listenable: store,
-      builder: (context, _) => Scaffold(
-        body: SafeArea(child: pages[store.tab]),
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: store.tab,
-          onDestinationSelected: store.goTab,
-          destinations: [
-            NavigationDestination(icon: const Icon(Icons.home_outlined), selectedIcon: const Icon(Icons.home), label: tr('tHome')),
-            NavigationDestination(icon: const Icon(Icons.calendar_month_outlined), selectedIcon: const Icon(Icons.calendar_month), label: tr('tSched')),
-            NavigationDestination(icon: const Icon(Icons.add_circle_outline), selectedIcon: const Icon(Icons.add_circle), label: tr('tNew')),
-            NavigationDestination(icon: const Icon(Icons.tune), selectedIcon: const Icon(Icons.tune), label: tr('tSet')),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ───────────────────────── Shared widgets ─────────────────────────
-
-class ScreenHeader extends StatelessWidget {
-  const ScreenHeader(this.title, {super.key});
-  final String title;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 12),
-        child: Row(children: [
-          Expanded(child: Text(title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700))),
-        ]),
-      );
-}
-
-class SectionTitle extends StatelessWidget {
-  const SectionTitle(this.text, {super.key});
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 10),
-        child: Text(text, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-      );
-}
-
-/// Single-choice chips (day / type / reminder).
-class Seg<T> extends StatelessWidget {
-  const Seg({super.key, required this.items, required this.value, required this.onChanged, this.fontSize = 14});
-  final Map<T, String> items;
-  final T value;
-  final ValueChanged<T> onChanged;
-  final double fontSize;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(children: [
-      for (final e in items.entries)
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 3),
-            child: Semantics(
-              button: true,
-              selected: e.key == value,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(12),
-                onTap: () => onChanged(e.key),
-                child: Container(
-                  height: 44,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: e.key == value ? kAcc : cardColor(context),
-                    border: Border.all(color: e.key == value ? kAcc : lineColor(context)),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    e.value,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: fontSize,
-                      fontWeight: e.key == value ? FontWeight.w700 : FontWeight.w400,
-                      color: e.key == value ? Colors.white : null,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-    ]);
-  }
-}
-
-Map<int, String> dayChips() => {for (final d in store.weekOrder) d: dayName(d)};
-
-class ItemCard extends StatelessWidget {
-  const ItemCard(this.item, {super.key});
-  final Item item;
-
-  @override
-  Widget build(BuildContext context) {
-    final due = item.kind == Kind.due;
-    final sub = [
-      if (item.room != null) T(item.room!),
-      rb(item.remind),
-    ].join(' · ');
-    return Container(
-      margin: const EdgeInsets.fromLTRB(24, 0, 24, 10),
-      padding: const EdgeInsets.all(14),
-      decoration: cardDeco(context),
-      child: Row(children: [
-        Container(
-          width: 72,
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          decoration: BoxDecoration(color: kAcc.withAlpha(30), borderRadius: BorderRadius.circular(10)),
-          child: Text(
-            due ? '${dayName(item.day)}\n${fm(item.start)}' : '${fm(item.start)}\n${fm(item.end)}',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, height: 1.5, color: due ? kWarn : kAcc),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(T(item.title), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 2),
-            Text(sub, style: TextStyle(fontSize: 12, color: mutColor(context))),
-          ]),
-        ),
-        IconButton.filledTonal(
-          tooltip: tr(item.on ? 'off' : 'on'),
-          style: kIconStyle,
-          icon: Icon(item.on ? Icons.notifications_active : Icons.notifications_none),
-          onPressed: () {
-            store.toggle(item);
-            ScaffoldMessenger.of(context)
-              ..hideCurrentSnackBar()
-              ..showSnackBar(SnackBar(content: Text(tr(item.on ? 'on' : 'off')), duration: const Duration(seconds: 2)));
-          },
-        ),
-      ]),
-    );
-  }
-}
-
-// ───────────────────────── Today ─────────────────────────
-
-class TodayPage extends StatelessWidget {
-  const TodayPage({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final list = store.dayItems(store.tdx);
-    final dues = store.dues();
-    final nx = store.next();
-    return ListView(padding: const EdgeInsets.only(bottom: 16), children: [
-      ScreenHeader(dateStr(DateTime.now())),
-      Container(
-        margin: const EdgeInsets.symmetric(horizontal: 24),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: kAcc,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [BoxShadow(color: kAcc.withAlpha(72), blurRadius: 24, offset: const Offset(0, 10))],
-        ),
-        child: nx == null
-            ? Text(tr('nonext'), style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700))
-            : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(
-                  tr('next') + (nx.minutes != null ? ' · ${nd(tr('inm').replaceAll('{n}', '${nx.minutes}'))}' : ''),
-                  style: const TextStyle(color: Colors.white, fontSize: 14),
-                ),
-                const SizedBox(height: 4),
-                Text(T(nx.item.title), style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 4),
-                Text(
-                  '${fm(nx.item.start)} – ${fm(nx.item.end)}${nx.item.room != null ? ' · ${T(nx.item.room!)}' : ''}',
-                  style: const TextStyle(color: Colors.white, fontSize: 14),
-                ),
-                if (nx.minutes != null) ...[
-                  const SizedBox(height: 14),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(3),
-                    child: LinearProgressIndicator(
-                      value: (1 - nx.minutes! / 120).clamp(0.0, 1.0).toDouble(),
-                      minHeight: 6,
-                      backgroundColor: Colors.white.withAlpha(70),
-                      valueColor: const AlwaysStoppedAnimation(Colors.white),
-                    ),
-                  ),
-                ],
-              ]),
-      ),
-      SectionTitle(tr('sch')),
-      if (list.isEmpty)
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Text(tr('none'), style: TextStyle(color: mutColor(context))),
-        )
-      else
-        ...list.map(ItemCard.new),
-      if (dues.isNotEmpty) ...[SectionTitle(tr('due')), ...dues.map(ItemCard.new)],
-    ]);
-  }
-}
-
-// ───────────────────────── Weekly (square tiles) ─────────────────────────
-
-class WeekPage extends StatelessWidget {
+class WeekPage extends StatefulWidget {
   const WeekPage({super.key});
 
   @override
+  State<WeekPage> createState() => _WeekPageState();
+}
+
+class _WeekPageState extends State<WeekPage> {
+  late int day = kWeekdays.contains(DateTime.now().weekday) ? DateTime.now().weekday : 6;
+
+  @override
   Widget build(BuildContext context) {
-    final list = [
-      ...store.dayItems(store.sel),
-      ...store.dues().where((i) => i.day == store.sel),
-    ];
-    return ListView(padding: const EdgeInsets.only(bottom: 16), children: [
-      ScreenHeader(tr('wk')),
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 21),
-        child: Seg<int>(items: dayChips(), value: store.sel, onChanged: store.selectDay, fontSize: 12),
-      ),
-      if (list.isEmpty)
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-          child: Text(tr('none'), style: TextStyle(color: mutColor(context))),
-        ),
-      Padding(
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-        child: GridView.count(
-          crossAxisCount: 2,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
+    final a = AppScope.of(context);
+    final cs = Theme.of(context).colorScheme;
+    final list = a.lectures.where((l) => l.weekday == day).toList()..sort((x, y) => x.start.compareTo(y.start));
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 96),
+      children: [
+        Text(a.t('weekTitle'), style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 16),
+        Row(
           children: [
-            for (final i in list) _Tile(i),
-            _AddTile(),
+            for (final d in kWeekdays)
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () => setState(() => day = d),
+                    child: Container(
+                      height: 56,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: d == day ? cs.primary : cs.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Text(
+                        a.shortDay(d),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: d == day ? cs.onPrimary : cs.onSurface,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
-      ),
-    ]);
+        const SizedBox(height: 18),
+        if (list.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 40),
+            child: Center(child: Text(a.t('noDay'), style: TextStyle(color: cs.onSurfaceVariant))),
+          )
+        else
+          for (final l in list) LectureTile(lecture: l),
+      ],
+    );
   }
 }
 
-class _Tile extends StatelessWidget {
-  const _Tile(this.item);
-  final Item item;
+// ───────────────────────── التذكيرات ─────────────────────────
+
+class RemindersPage extends StatefulWidget {
+  const RemindersPage({super.key});
+
+  @override
+  State<RemindersPage> createState() => _RemindersPageState();
+}
+
+class _RemindersPageState extends State<RemindersPage> {
+  bool showDone = false;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => Scaffold(body: SafeArea(child: AddPage(edit: item))),
-      )),
-      child: Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: kindColor(item.kind), borderRadius: BorderRadius.circular(20)),
-      child: Column(mainAxisAlignment: MainAxisAlignment.spaceBetween, crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+    final a = AppScope.of(context);
+    final cs = Theme.of(context).colorScheme;
+    final list = a.reminders.where((r) => r.done == showDone).toList()..sort((x, y) => x.when.compareTo(y.when));
+
+    final groups = <String, List<Reminder>>{};
+    for (final r in list) {
+      groups.putIfAbsent('${r.when.year}-${r.when.month}-${r.when.day}', () => []).add(r);
+    }
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 96),
+      children: [
+        Text(a.t('remTitle'), style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 14),
+        SegmentedButton<bool>(
+          showSelectedIcon: false,
+          segments: [
+            ButtonSegment(value: false, label: Text(a.t('upcoming'))),
+            ButtonSegment(value: true, label: Text(a.t('completed'))),
+          ],
+          selected: {showDone},
+          onSelectionChanged: (s) => setState(() => showDone = s.first),
+        ),
+        const SizedBox(height: 16),
+        if (list.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 48),
+            child: Column(
+              children: [
+                Icon(Icons.task_alt, size: 44, color: cs.onSurfaceVariant),
+                const SizedBox(height: 10),
+                Text(showDone ? a.t('noneDone') : a.t('allDone'), style: TextStyle(color: cs.onSurfaceVariant, fontSize: 16)),
+              ],
+            ),
+          ),
+        for (final g in groups.values) ...[
+          Padding(
+            padding: const EdgeInsets.only(top: 8, bottom: 6),
+            child: Text(a.dayLabel(g.first.when), style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant)),
+          ),
+          for (final r in g) ReminderTile(reminder: r),
+        ],
+      ],
+    );
+  }
+}
+
+class ReminderTile extends StatelessWidget {
+  const ReminderTile({super.key, required this.reminder});
+  final Reminder reminder;
+
+  @override
+  Widget build(BuildContext context) {
+    final a = AppScope.of(context);
+    final cs = Theme.of(context).colorScheme;
+    final r = reminder;
+    final isExam = r.kind == 'exam';
+    final tagBg = isExam ? const Color(0xFFFBDDE6) : const Color(0xFFFBEBCB);
+    final tagFg = isExam ? const Color(0xFF8A1F42) : const Color(0xFF5E3C00);
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: () async {
+              await a.update(() => r.done = !r.done);
+              await scheduleReminder(a, r);
+            },
+            icon: Icon(r.done ? Icons.check_circle : Icons.radio_button_unchecked, color: r.done ? cs.primary : cs.outline),
+          ),
+          Expanded(
+            child: Opacity(
+              opacity: r.done ? 0.55 : 1,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      r.title,
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, decoration: r.done ? TextDecoration.lineThrough : null),
+                    ),
+                    Text(
+                      [a.fmtDateTime(r.when), if (r.subject.isNotEmpty) r.subject].join(' · '),
+                      style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-            decoration: BoxDecoration(color: Colors.white.withAlpha(56), borderRadius: BorderRadius.circular(8)),
-            child: Text(kindLabel(item.kind), style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(color: tagBg, borderRadius: BorderRadius.circular(10)),
+            child: Text(a.t(r.kind), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: tagFg)),
           ),
-          const Icon(Icons.edit_outlined, size: 18, color: Colors.white),
-        ]),
-        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(T(item.title), maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700, height: 1.4)),
-          const SizedBox(height: 4),
-          Text(
-            item.kind == Kind.due ? fm(item.start) : '${fm(item.start)} – ${fm(item.end)}',
-            style: const TextStyle(color: Colors.white, fontSize: 12),
+          IconButton(
+            tooltip: a.t('delete'),
+            icon: const Icon(Icons.delete_outline),
+            onPressed: () async {
+              await plugin.cancel(r.id);
+              await a.update(() => a.reminders.removeWhere((x) => x.id == r.id));
+            },
           ),
-          if (item.room != null) Text(T(item.room!), style: const TextStyle(color: Colors.white, fontSize: 12)),
-        ]),
-      ]),
-    ));
-  }
-}
-
-class _AddTile extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(20),
-      onTap: () => store.goTab(2),
-      child: _Dashed(
-        color: lineColor(context),
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          const Icon(Icons.add_circle_outline, size: 32, color: kAcc),
-          const SizedBox(height: 6),
-          Text(tr('tNew'), style: const TextStyle(color: kAcc, fontWeight: FontWeight.w600)),
-        ]),
+        ],
       ),
     );
   }
 }
 
-// ───────────────────────── Settings ─────────────────────────
-
-class SettingsPage extends StatelessWidget {
-  const SettingsPage({super.key});
-
-  Widget _card(BuildContext c, String title, List<Widget> kids) => Container(
-        margin: const EdgeInsets.fromLTRB(24, 0, 24, 12),
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-        decoration: cardDeco(c, r: 20),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kAcc)),
-          const SizedBox(height: 10),
-          ...kids,
-        ]),
-      );
-
-  @override
-  Widget build(BuildContext context) {
-    final platformDark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
-    final isDark = store.mode == ThemeMode.dark || (store.mode == ThemeMode.system && platformDark);
-    return ListView(padding: const EdgeInsets.only(bottom: 16), children: [
-      ScreenHeader(tr('tSet')),
-      _card(context, tr('theme'), [
-        Seg<ThemeMode>(
-          items: {ThemeMode.light: tr('light'), ThemeMode.dark: tr('darkT')},
-          value: isDark ? ThemeMode.dark : ThemeMode.light,
-          onChanged: store.setMode,
-        ),
-      ]),
-      _card(context, tr('langT'), [
-        Seg<String>(
-          items: const {'ar': 'العربية', 'en': 'English'},
-          value: store.lang,
-          onChanged: store.setLang,
-        ),
-      ]),
-      _card(context, tr('notif'), [
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(tr('notifAll'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-          value: store.notify,
-          onChanged: store.setNotify,
-        ),
-        const SizedBox(height: 4),
-        Text(tr('defRem'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: mutColor(context))),
-        const SizedBox(height: 4),
-        Seg<int>(
-          items: {for (final m in [15, 30, 60]) m: nd(_rl[store.lang]![m]!)},
-          value: store.defRemind,
-          onChanged: store.setDefRemind,
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: double.infinity,
-          height: 48,
-          child: OutlinedButton.icon(
-            onPressed: Notifier.test,
-            icon: const Icon(Icons.notifications_active_outlined),
-            label: Text(tr('testN')),
-          ),
-        ),
-      ]),
-      _card(context, tr('tSched'), [
-        Text(tr('firstD'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: mutColor(context))),
-        const SizedBox(height: 4),
-        Seg<int>(
-          items: {6: tr('sat'), 0: tr('sun')},
-          value: store.firstDay,
-          onChanged: store.setFirstDay,
-        ),
-        const SizedBox(height: 12),
-        Text(tr('timeF'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: mutColor(context))),
-        const SizedBox(height: 4),
-        Seg<bool>(
-          items: {false: tr('h12'), true: tr('h24')},
-          value: store.h24,
-          onChanged: store.setH24,
-        ),
-      ]),
-      Center(child: Text('${tr('name')} · 1.0', style: TextStyle(color: mutColor(context)))),
-    ]);
-  }
-}
-
-class _Dashed extends StatelessWidget {
-  const _Dashed({required this.color, required this.child});
-  final Color color;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) =>
-      CustomPaint(painter: _DashedBorder(color), child: SizedBox.expand(child: child));
-}
-
-class _DashedBorder extends CustomPainter {
-  _DashedBorder(this.color);
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-    final path = Path()..addRRect(RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(20)));
-    for (final m in path.computeMetrics()) {
-      double d = 0;
-      while (d < m.length) {
-        canvas.drawPath(m.extractPath(d, d + 6), paint);
-        d += 11;
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_DashedBorder old) => old.color != color;
-}
-
-// ───────────────────────── Add reminder ─────────────────────────
+// ───────────────────────── إضافة تذكير ─────────────────────────
 
 class AddPage extends StatefulWidget {
   const AddPage({super.key, this.edit});
-  final Item? edit; // when set, the page edits this reminder
+  final Lecture? edit;
 
   @override
   State<AddPage> createState() => _AddPageState();
 }
 
 class _AddPageState extends State<AddPage> {
-  final _ctrl = TextEditingController();
-  Kind _kind = Kind.lecture;
-  int _day = store.tdx;
-  int _from = 540;
-  int _to = 630;
-  int _remind = store.defRemind;
-  bool _weekly = true;
+  String kind = 'assignment'; // lecture | assignment | exam
+  final titleCtl = TextEditingController();
+  final subjectCtl = TextEditingController();
+  final roomCtl = TextEditingController();
+  int weekday = 6;
+  DateTime date = DateTime.now().add(const Duration(days: 1));
+  int startMin = 9 * 60;
+  int endMin = 10 * 60 + 30;
+  int before = 60;
+  String? error;
 
   @override
   void initState() {
     super.initState();
     final e = widget.edit;
     if (e != null) {
-      _ctrl.text = T(e.title);
-      _kind = e.kind;
-      _day = e.day;
-      _from = e.start;
-      _to = e.end > e.start ? e.end : e.start + 60;
-      _remind = e.remind;
-      _weekly = e.weekly;
+      kind = 'lecture';
+      subjectCtl.text = e.subject;
+      roomCtl.text = e.room;
+      weekday = e.weekday;
+      startMin = e.start;
+      endMin = e.end;
+      before = e.before;
     }
   }
 
   @override
   void dispose() {
-    _ctrl.dispose();
+    titleCtl.dispose();
+    subjectCtl.dispose();
+    roomCtl.dispose();
     super.dispose();
   }
 
-  Future<void> _pick(bool isFrom) async {
-    final cur = isFrom ? _from : _to;
-    final t = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay(hour: cur ~/ 60, minute: cur % 60),
-    );
+  Future<void> _pickTime(bool isEnd) async {
+    final cur = isEnd ? endMin : startMin;
+    final t = await showTimePicker(context: context, initialTime: TimeOfDay(hour: cur ~/ 60, minute: cur % 60));
     if (t == null) return;
     setState(() {
-      if (isFrom) {
-        _from = t.hour * 60 + t.minute;
+      final m = t.hour * 60 + t.minute;
+      if (isEnd) {
+        endMin = m;
       } else {
-        _to = t.hour * 60 + t.minute;
+        startMin = m;
+        if (endMin <= startMin) endMin = (startMin + 90).clamp(0, 23 * 60 + 59);
       }
     });
   }
 
-  void _save() {
-    final messenger = ScaffoldMessenger.of(context);
-    final title = _ctrl.text.trim();
-    if (title.isEmpty) {
-      messenger.showSnackBar(SnackBar(content: Text(tr('req'))));
-      return;
-    }
-    if (_kind != Kind.due && _to <= _from) {
-      messenger.showSnackBar(SnackBar(content: Text(tr('terr'))));
-      return;
-    }
-    final e = widget.edit;
-    final item = Item(
-      id: e?.id ?? DateTime.now().millisecondsSinceEpoch,
-      title: (e != null && title == T(e.title)) ? e.title : {'ar': title, 'en': title},
-      room: e?.room,
-      on: e?.on ?? true,
-      kind: _kind,
-      day: _day,
-      start: _from,
-      end: _kind == Kind.due ? _from : _to,
-      remind: _remind,
-      weekly: _weekly,
+  Future<void> _pickDate() async {
+    final d = await showDatePicker(
+      context: context,
+      initialDate: date,
+      firstDate: DateTime.now().subtract(const Duration(days: 1)),
+      lastDate: DateTime.now().add(const Duration(days: 365 * 3)),
     );
-    if (e != null) {
-      store.update(item);
-    } else {
-      store.add(item);
-    }
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(tr('saved'))));
-    store.sel = _day;
-    if (e != null) {
-      Navigator.of(context).pop();
-    } else {
-      store.goTab(1);
-    }
+    if (d != null) setState(() => date = d);
   }
 
-  void _delete() {
-    final messenger = ScaffoldMessenger.of(context);
-    store.remove(widget.edit!.id);
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(tr('deleted'))));
-    Navigator.of(context).pop();
+  Future<void> _save() async {
+    final a = AppScope.of(context);
+    final isLecture = kind == 'lecture';
+    final subject = subjectCtl.text.trim();
+    final title = titleCtl.text.trim();
+    if ((isLecture && subject.isEmpty) || (!isLecture && title.isEmpty)) {
+      setState(() => error = a.t('required'));
+      return;
+    }
+    final nav = Navigator.of(context);
+    if (isLecture) {
+      final e = widget.edit;
+      final l = Lecture(
+        id: e?.id ?? a.newId(),
+        subject: subject,
+        weekday: weekday,
+        start: startMin,
+        end: endMin,
+        room: roomCtl.text.trim(),
+        before: before > 60 ? 60 : before,
+      );
+      if (e != null) {
+        await a.update(() {
+          final i = a.lectures.indexWhere((x) => x.id == e.id);
+          if (i >= 0) a.lectures[i] = l;
+        });
+      } else {
+        await a.update(() => a.lectures.add(l));
+      }
+      await scheduleLecture(a, l);
+    } else {
+      final r = Reminder(
+        id: a.newId(),
+        title: title,
+        kind: kind,
+        subject: subject,
+        when: DateTime(date.year, date.month, date.day, startMin ~/ 60, startMin % 60),
+        before: before,
+      );
+      await a.update(() => a.reminders.add(r));
+      await scheduleReminder(a, r);
+    }
+    nav.pop();
   }
-
-  Widget _section(String title, List<Widget> kids) => Container(
-        margin: const EdgeInsets.fromLTRB(24, 0, 24, 12),
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
-        decoration: cardDeco(context, r: 20),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: kAcc)),
-          const SizedBox(height: 10),
-          ...kids,
-        ]),
-      );
-
-  Widget _field(String label, Widget child) => Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: mutColor(context))),
-          const SizedBox(height: 4),
-          child,
-        ]),
-      );
-
-  Widget _timeBox(int minutes, VoidCallback onTap) => InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Container(
-          height: 44,
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          alignment: AlignmentDirectional.centerStart,
-          decoration: BoxDecoration(
-            border: Border.all(color: lineColor(context)),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Text(fm(minutes), style: const TextStyle(fontSize: 15)),
-        ),
-      );
 
   @override
   Widget build(BuildContext context) {
-    return ListView(padding: const EdgeInsets.only(bottom: 16), children: [
-      widget.edit == null
-          ? ScreenHeader(tr('tNew'))
-          : Padding(
-              padding: const EdgeInsets.fromLTRB(12, 16, 24, 12),
-              child: Row(children: [
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const BackButtonIcon(),
-                  tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-                ),
-                Text(tr('editT'), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
-              ]),
+    final a = AppScope.of(context);
+    final cs = Theme.of(context).colorScheme;
+    final isLecture = kind == 'lecture';
+    final subjects = {...a.lectures.map((l) => l.subject), ...a.reminders.map((r) => r.subject)}..remove('');
+    final befores = <int, String>{10: a.t('m10'), 60: a.t('h1'), 1440: a.t('d1'), 10080: a.t('w1')};
+
+    return Scaffold(
+      appBar: AppBar(title: Text(widget.edit != null ? a.t('editLecture') : a.t('newReminder'))),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+        children: [
+          if (widget.edit == null)
+            SegmentedButton<String>(
+            showSelectedIcon: false,
+            segments: [
+              ButtonSegment(value: 'lecture', label: Text(a.t('lecture'))),
+              ButtonSegment(value: 'assignment', label: Text(a.t('assignment'))),
+              ButtonSegment(value: 'exam', label: Text(a.t('exam'))),
+            ],
+            selected: {kind},
+            onSelectionChanged: (s) => setState(() {
+              kind = s.first;
+              before = kind == 'lecture' ? 10 : 60;
+              error = null;
+            }),
+          ),
+          const SizedBox(height: 16),
+          if (!isLecture) ...[
+            TextField(
+              controller: titleCtl,
+              decoration: InputDecoration(labelText: a.t('title'), border: const OutlineInputBorder(), errorText: error),
             ),
-      _section(tr('details'), [
-        _field(
-          tr('course'),
+            const SizedBox(height: 14),
+          ],
           TextField(
-            controller: _ctrl,
-            maxLength: 40,
+            controller: subjectCtl,
             decoration: InputDecoration(
-              counterText: '',
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              labelText: a.t('subject'),
+              border: const OutlineInputBorder(),
+              errorText: isLecture ? error : null,
             ),
           ),
-        ),
-        _field(
-          tr('type'),
-          Seg<Kind>(
-            items: {for (final k in Kind.values) k: kindLabel(k)},
-            value: _kind,
-            onChanged: (k) => setState(() => _kind = k),
-          ),
-        ),
-      ]),
-      _section(tr('when'), [
-        _field(tr('day'), Seg<int>(items: dayChips(), value: _day, onChanged: (d) => setState(() => _day = d), fontSize: 12)),
-        Row(children: [
-          Expanded(child: _field(tr('from'), _timeBox(_from, () => _pick(true)))),
-          const SizedBox(width: 10),
-          Expanded(child: _field(tr('to'), _timeBox(_to, () => _pick(false)))),
-        ]),
-      ]),
-      _section(tr('alert'), [
-        _field(
-          tr('remMe'),
-          Seg<int>(
-            items: {for (final m in [15, 30, 60, 1440]) m: nd(_rl[store.lang]![m]!)},
-            value: _remind,
-            onChanged: (m) => setState(() => _remind = m),
-          ),
-        ),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(tr('repW'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-          value: _weekly,
-          onChanged: (v) => setState(() => _weekly = v),
-        ),
-      ]),
-      Padding(
-        padding: const EdgeInsets.fromLTRB(24, 4, 24, 0),
-        child: Container(
-          height: 56,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [BoxShadow(color: kAcc.withAlpha(82), blurRadius: 20, offset: const Offset(0, 8))],
-          ),
-          child: FilledButton.icon(
-            style: FilledButton.styleFrom(
-              backgroundColor: kAcc,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+          if (subjects.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: [
+                for (final s in subjects)
+                  ActionChip(
+                    avatar: CircleAvatar(backgroundColor: subjectColor(s), radius: 6),
+                    label: Text(s),
+                    onPressed: () => setState(() => subjectCtl.text = s),
+                  ),
+              ],
             ),
-            onPressed: _save,
-            icon: const Icon(Icons.check),
-            label: Text(tr(widget.edit == null ? 'save' : 'saveE')),
+          ],
+          const SizedBox(height: 14),
+          if (isLecture) ...[
+            TextField(controller: roomCtl, decoration: InputDecoration(labelText: a.t('room'), border: const OutlineInputBorder())),
+            const SizedBox(height: 14),
+            Text(a.t('day'), style: const TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final d in kWeekdays)
+                  ChoiceChip(label: Text(a.dayName(d)), selected: weekday == d, onSelected: (_) => setState(() => weekday = d)),
+              ],
+            ),
+          ] else
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.event),
+              title: Text(a.t('date')),
+              subtitle: Text(a.longDate(date)),
+              trailing: const Icon(Icons.edit_calendar_outlined),
+              onTap: _pickDate,
+            ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Expanded(
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.schedule),
+                  title: Text(isLecture ? a.t('startTime') : a.t('time')),
+                  subtitle: Text(a.fmtMin(startMin)),
+                  onTap: () => _pickTime(false),
+                ),
+              ),
+              if (isLecture)
+                Expanded(
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(a.t('endTime')),
+                    subtitle: Text(a.fmtMin(endMin)),
+                    onTap: () => _pickTime(true),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(a.t('remindBefore'), style: const TextStyle(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final e in befores.entries)
+                if (!isLecture || e.key <= 60)
+                  ChoiceChip(label: Text(e.value), selected: before == e.key, onSelected: (_) => setState(() => before = e.key)),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Card(
+            child: ListTile(
+              leading: Icon(Icons.volume_up_outlined, color: cs.onSurfaceVariant),
+              title: Text(a.t('soundRow')),
+              subtitle: Text(a.soundMode == 'custom' && a.toneTitle.isNotEmpty ? a.toneTitle : a.t('phoneDefault')),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () async {
+                await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const SoundPage()));
+                if (mounted) setState(() {});
+              },
+            ),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            height: 54,
+            child: FilledButton(onPressed: _save, child: Text(a.t('saveReminder'), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700))),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ───────────────────────── نغمة التنبيه ─────────────────────────
+
+class SoundPage extends StatelessWidget {
+  const SoundPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final a = AppScope.of(context);
+    final cs = Theme.of(context).colorScheme;
+
+    Widget option({required bool selected, required String title, required String sub, required VoidCallback onTap}) {
+      return Card(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: selected ? cs.primary : Colors.transparent, width: 2),
+        ),
+        child: ListTile(
+          leading: Icon(selected ? Icons.radio_button_checked : Icons.radio_button_unchecked, color: selected ? cs.primary : cs.outline),
+          title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+          subtitle: Text(sub),
+          onTap: onTap,
+        ),
+      );
+    }
+
+    final durOptions = <int, String>{0: a.t('untilStop'), 1: a.t('min1'), 5: a.t('min5'), 10: a.t('min10')};
+
+    return Scaffold(
+      appBar: AppBar(title: Text(a.t('soundTitle'))),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+        children: [
+          option(
+            selected: a.soundMode == 'default',
+            title: a.t('phoneDefault'),
+            sub: a.t('phoneDefaultSub'),
+            onTap: () => a.update(() => a.soundMode = 'default'),
+          ),
+          option(
+            selected: a.soundMode == 'custom',
+            title: a.t('pickFromPhone'),
+            sub: a.toneTitle.isNotEmpty ? a.toneTitle : a.t('pickFromPhoneSub'),
+            onTap: () async {
+              if (a.toneUri.isEmpty) {
+                await pickRingtone(a);
+              } else {
+                await a.update(() => a.soundMode = 'custom');
+              }
+            },
+          ),
+          if (a.soundMode == 'custom')
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: OutlinedButton.icon(
+                onPressed: () => pickRingtone(a),
+                icon: const Icon(Icons.library_music_outlined),
+                label: Text(a.toneTitle.isNotEmpty ? '${a.t('chooseTone')}: ${a.toneTitle}' : a.t('chooseTone')),
+              ),
+            ),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(a.t('continuous'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                            Text(a.t('continuousSub'), style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+                          ],
+                        ),
+                      ),
+                      Switch(value: a.continuous, onChanged: (v) => a.update(() => a.continuous = v)),
+                    ],
+                  ),
+                  if (a.continuous) ...[
+                    const SizedBox(height: 10),
+                    Text(a.t('repeatFor'), style: const TextStyle(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final e in durOptions.entries)
+                          ChoiceChip(label: Text(e.value), selected: a.repeatMin == e.key, onSelected: (_) => a.update(() => a.repeatMin = e.key)),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          Card(
+            child: SwitchListTile(
+              title: Text(a.t('vibrate')),
+              value: a.vibrate,
+              onChanged: (v) => a.update(() => a.vibrate = v),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 52,
+                  child: OutlinedButton(onPressed: () => previewAlert(a), child: Text(a.t('preview'))),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: SizedBox(
+                  height: 52,
+                  child: FilledButton(
+                    onPressed: () async {
+                      final nav = Navigator.of(context);
+                      await rescheduleAll(a);
+                      nav.pop();
+                    },
+                    child: Text(a.t('save')),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ───────────────────────── الإعدادات ─────────────────────────
+
+class SettingsPage extends StatelessWidget {
+  const SettingsPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final a = AppScope.of(context);
+
+    Widget section(String title, Widget child) => Padding(
+          padding: const EdgeInsets.only(bottom: 22),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+              const SizedBox(height: 10),
+              SizedBox(width: double.infinity, child: child),
+            ],
+          ),
+        );
+
+    return Scaffold(
+      appBar: AppBar(title: Text(a.t('settings'))),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+        children: [
+          section(
+            a.t('appearance'),
+            SegmentedButton<ThemeMode>(
+              showSelectedIcon: false,
+              segments: [
+                ButtonSegment(value: ThemeMode.light, label: Text(a.t('light'))),
+                ButtonSegment(value: ThemeMode.dark, label: Text(a.t('dark'))),
+                ButtonSegment(value: ThemeMode.system, label: Text(a.t('system'))),
+              ],
+              selected: {a.themeMode},
+              onSelectionChanged: (s) => a.update(() => a.themeMode = s.first),
+            ),
+          ),
+          section(
+            a.t('language'),
+            SegmentedButton<String>(
+              showSelectedIcon: false,
+              segments: const [
+                ButtonSegment(value: 'ar', label: Text('العربية')),
+                ButtonSegment(value: 'en', label: Text('English')),
+              ],
+              selected: {a.lang},
+              onSelectionChanged: (s) async {
+                await a.update(() => a.lang = s.first);
+                await rescheduleAll(a);
+              },
+            ),
+          ),
+          section(
+            a.t('timeFormat'),
+            SegmentedButton<bool>(
+              showSelectedIcon: false,
+              segments: [
+                ButtonSegment(value: false, label: Text(a.t('h12'))),
+                ButtonSegment(value: true, label: Text(a.t('h24'))),
+              ],
+              selected: {a.use24},
+              onSelectionChanged: (s) async {
+                await a.update(() => a.use24 = s.first);
+                await rescheduleAll(a);
+              },
+            ),
+          ),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.volume_up_outlined),
+              title: Text(a.t('soundRow')),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const SoundPage())),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ───────────────────────── شاشة التنبيه الرنّان ─────────────────────────
+
+class AlarmPage extends StatefulWidget {
+  const AlarmPage({super.key, required this.id, required this.title, required this.sub});
+  final int id;
+  final String title;
+  final String sub;
+
+  @override
+  State<AlarmPage> createState() => _AlarmPageState();
+}
+
+class _AlarmPageState extends State<AlarmPage> with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 2400))..repeat();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  Future<void> _stop() async {
+    await plugin.cancel(widget.id);
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  Future<void> _snooze() async {
+    final a = AppScope.of(context);
+    final nav = Navigator.of(context);
+    await plugin.cancel(widget.id);
+    await _schedule(widget.id, widget.title, widget.sub, DateTime.now().add(const Duration(minutes: 5)), a);
+    nav.pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final a = AppScope.of(context);
+    final cs = Theme.of(context).colorScheme;
+    final now = DateTime.now();
+    const bg = Color(0xFF062E27);
+    return Scaffold(
+      backgroundColor: bg,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 32, 24, 36),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(14)),
+                child: Text(a.t('alarmBadge'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+              ),
+              const SizedBox(height: 12),
+              Text(a.fmtDateTime(now), style: const TextStyle(fontSize: 56, fontWeight: FontWeight.w700, color: Colors.white)),
+              Text(a.longDate(now), style: const TextStyle(color: Color(0xFFB8D4CD))),
+              Expanded(
+                child: Center(
+                  child: SizedBox(
+                    width: 280,
+                    height: 280,
+                    child: AnimatedBuilder(
+                      animation: _c,
+                      builder: (context, _) => Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          for (final shift in [0.0, 0.33, 0.66])
+                            Builder(builder: (context) {
+                              final t = (_c.value + shift) % 1.0;
+                              return Opacity(
+                                opacity: (1 - t) * 0.55,
+                                child: Container(
+                                  width: 200 * (0.55 + 0.95 * t),
+                                  height: 200 * (0.55 + 0.95 * t),
+                                  decoration: BoxDecoration(shape: BoxShape.circle, color: cs.primary),
+                                ),
+                              );
+                            }),
+                          Container(
+                            width: 112,
+                            height: 112,
+                            decoration: BoxDecoration(shape: BoxShape.circle, color: cs.primary),
+                            child: const Icon(Icons.notifications_active, size: 54, color: Colors.white),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Text(widget.title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: Colors.white)),
+              const SizedBox(height: 8),
+              Text(widget.sub, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, color: Color(0xFFD5E8E3))),
+              const SizedBox(height: 28),
+              SizedBox(
+                width: double.infinity,
+                height: 60,
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: bg,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  ),
+                  onPressed: _stop,
+                  icon: const Icon(Icons.stop),
+                  label: Text(a.t('stop'), style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                height: 54,
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(color: Colors.white54, width: 1.5),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                  ),
+                  onPressed: _snooze,
+                  child: Text(a.t('snooze'), style: const TextStyle(fontSize: 17)),
+                ),
+              ),
+            ],
           ),
         ),
       ),
-      if (widget.edit != null)
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
-          child: SizedBox(
-            height: 52,
-            child: OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: kWarn,
-                side: const BorderSide(color: kWarn, width: 2),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-              ),
-              onPressed: _delete,
-              icon: const Icon(Icons.delete_outline),
-              label: Text(tr('del')),
-            ),
-          ),
-        ),
-    ]);
+    );
   }
 }
