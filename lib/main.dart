@@ -628,12 +628,13 @@ class JadwaliApp extends StatelessWidget {
 class SplashPage extends StatelessWidget {
   const SplashPage({super.key});
 
+  static const _navy = Color(0xFF0F2A6B);
+
   @override
   Widget build(BuildContext context) {
     final a = AppScope.of(context);
-    final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: cs.primary,
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 40),
@@ -643,20 +644,12 @@ class SplashPage extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Container(
-                      width: 104,
-                      height: 104,
-                      decoration: BoxDecoration(color: cs.onPrimary, borderRadius: BorderRadius.circular(30)),
-                      child: Icon(Icons.event_available, size: 56, color: cs.primary),
-                    ),
-                    const SizedBox(height: 20),
-                    Text(a.t('app'),
-                        style: TextStyle(fontSize: 44, fontWeight: FontWeight.w700, color: cs.onPrimary)),
+                    Image.asset('assets/logo.png', width: 240, semanticLabel: a.t('app')),
                     const SizedBox(height: 16),
                     Text(
                       a.t('tagline'),
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 18, height: 1.7, color: cs.onPrimary),
+                      style: const TextStyle(fontSize: 17, height: 1.7, color: Color(0xFF3D4A66)),
                     ),
                   ],
                 ),
@@ -666,8 +659,8 @@ class SplashPage extends StatelessWidget {
                 height: 56,
                 child: FilledButton(
                   style: FilledButton.styleFrom(
-                    backgroundColor: cs.onPrimary,
-                    foregroundColor: cs.primary,
+                    backgroundColor: _navy,
+                    foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                   ),
                   onPressed: () => a.update(() => a.onboarded = true),
