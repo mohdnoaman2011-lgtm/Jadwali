@@ -1,4 +1,3 @@
-
 name: Build APK
 on: [push, workflow_dispatch]
 jobs:
@@ -9,6 +8,10 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+      - name: Check files
+        run: ls -R lib pubspec.yaml
+      - name: Create android folder if missing
+        run: '[ -d android ] || flutter create . --platforms=android --project-name jadwali'
       - run: flutter pub get
       - run: flutter build apk --release
       - uses: actions/upload-artifact@v4
