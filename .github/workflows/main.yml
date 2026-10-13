@@ -36,14 +36,21 @@ jobs:
           cp tool/MainActivity.kt android/app/src/main/kotlin/com/example/jadwali/MainActivity.kt
           python3 tool/patch_manifest.py
 
-      - name: Create assets
-        run: python3 tool/make_assets.py
+      - name: Prepare assets
+        run: |
+          mkdir -p assets
+          [ -f assets/logo.png ] || : > assets/logo.png
 
       - name: Get packages
         run: flutter pub get
 
       - name: Generate launcher icons
-        run: dart run flutter_launcher_icons
+        run: |
+          if [ -s assets/icon.png ] && [ -s assets/icon_foreground.png ]; then
+            dart run flutter_launcher_icons
+          else
+            echo "No icon files, skipping"
+          fi
 
       - name: Build release APK
         run: flutter build apk --release
