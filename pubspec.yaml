@@ -1,33 +1,29 @@
 name: jadwali
-description: جدولي - تطبيق تذكير الجدول الجامعي
+description: Jadwali - university schedule reminder app (mockup implementation).
 publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.3.0 <4.0.0'
+  sdk: ^3.10.0
 
 dependencies:
   flutter:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
-  flutter_local_notifications: ^17.2.4
-  flutter_timezone: ^3.0.1
-  timezone: ^0.9.4
-  google_fonts: ^6.3.3
-  shared_preferences: ^2.3.0
+  intl: any
+  flutter_local_notifications: ^22.2.0
+  shared_preferences: ^2.5.0
+  timezone: ^0.10.0
+  flutter_timezone: ^4.1.0
+  flutter_system_ringtones: ^1.1.1
 
 dev_dependencies:
-  flutter_launcher_icons: ^0.14.4
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
 
 flutter:
   uses-material-design: true
   assets:
     - assets/logo.png
-
-flutter_launcher_icons:
-  android: true
-  ios: false
-  image_path: assets/icon.png
-  adaptive_icon_background: "#FFFFFF"
-  adaptive_icon_foreground: assets/icon_foreground.png
