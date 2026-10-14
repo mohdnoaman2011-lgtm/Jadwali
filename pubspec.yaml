@@ -14,7 +14,7 @@ dependencies:
   intl: any
   flutter_local_notifications: ^22.2.0
   shared_preferences: ^2.5.0
-  timezone: ^0.10.0
+  timezone: ^0.11.2
   flutter_timezone: ^4.1.0
   flutter_system_ringtones: ^1.1.1
 
