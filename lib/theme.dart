@@ -33,23 +33,92 @@ class Pal {
 Color checkColor(BuildContext c) =>
     Theme.of(c).brightness == Brightness.dark ? Brand.cyan : Brand.blue;
 
-/// App-wide on/off switch: cyan track with a navy thumb when on.
-Widget appSwitch(bool value, ValueChanged<bool> onChanged) => Switch(
-      value: value,
-      onChanged: onChanged,
-      activeTrackColor: Brand.cyan,
-      thumbColor: WidgetStateProperty.resolveWith((states) =>
-          states.contains(WidgetState.selected) ? Brand.navy : Colors.white),
-    );
+/// App-wide on/off switch (same look as the design: 48x28 track, 22 knob).
+Widget appSwitch(bool value, ValueChanged<bool> onChanged) =>
+    _AppSwitch(value: value, onChanged: onChanged);
 
-ThemeData buildTheme(Brightness b) {
+class _AppSwitch extends StatelessWidget {
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  const _AppSwitch({required this.value, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = Pal.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final offTrack = isDark ? const Color(0xFF2E4670) : const Color(0xFFD3DCEA);
+    return Semantics(
+      toggled: value,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => onChanged(!value),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: 48,
+          height: 28,
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            color: value ? Brand.cyan : offTrack,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: AnimatedAlign(
+            duration: const Duration(milliseconds: 200),
+            alignment: value
+                ? AlignmentDirectional.centerEnd
+                : AlignmentDirectional.centerStart,
+            child: Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                color: value ? p.nav : Colors.white,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+ThemeData buildTheme(Brightness b, bool arabic) {
   final p = b == Brightness.dark ? Pal.dark : Pal.light;
+  final base = ThemeData(brightness: b).textTheme;
+
+  // Fonts from the design: IBM Plex Sans Arabic (Arabic) / DM Sans (English),
+  // with the same 1.35 line height.
+  var text = arabic
+      ? GoogleFonts.ibmPlexSansArabicTextTheme(base)
+      : GoogleFonts.dmSansTextTheme(base);
+  TextStyle? h(TextStyle? s) => s?.copyWith(height: 1.35);
+  text = text.copyWith(
+    bodyLarge: h(text.bodyLarge),
+    bodyMedium: h(text.bodyMedium),
+    bodySmall: h(text.bodySmall),
+    titleMedium: h(text.titleMedium),
+    labelLarge: h(text.labelLarge),
+  );
+  text = text.apply(bodyColor: p.text, displayColor: p.text);
+
+  final noBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none);
+
   return ThemeData(
     useMaterial3: true,
     brightness: b,
     scaffoldBackgroundColor: p.bg,
+    textTheme: text,
     colorScheme: ColorScheme.fromSeed(seedColor: Brand.navy, brightness: b)
         .copyWith(primary: p.primary, surface: p.surface, onSurface: p.text),
+    splashFactory: NoSplash.splashFactory,
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: p.surface,
+      border: noBorder,
+      enabledBorder: noBorder,
+      focusedBorder: noBorder,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+    ),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
       backgroundColor: p.nav,
