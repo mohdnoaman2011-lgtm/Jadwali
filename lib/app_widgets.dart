@@ -22,8 +22,18 @@ class JadwaliApp extends StatelessWidget {
           GlobalCupertinoLocalizations.delegate,
         ],
         themeMode: app.themeMode,
-        theme: buildTheme(Brightness.light),
-        darkTheme: buildTheme(Brightness.dark),
+        theme: buildTheme(Brightness.light, app.isAr),
+        darkTheme: buildTheme(Brightness.dark, app.isAr),
+        builder: (context, child) {
+          final dark = Theme.of(context).brightness == Brightness.dark;
+          return AnnotatedRegion<SystemUiOverlayStyle>(
+            value: (dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark)
+                .copyWith(
+                    statusBarColor: Colors.transparent,
+                    systemNavigationBarColor: Colors.transparent),
+            child: child ?? const SizedBox.shrink(),
+          );
+        },
         home: app.onboarded ? const Shell() : const StartScreen(),
       ),
     );
