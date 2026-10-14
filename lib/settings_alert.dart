@@ -207,7 +207,11 @@ class AlertPage extends StatelessWidget {
               style: const TextStyle(fontSize: 13, color: Brand.navy)),
         );
 
-    return Scaffold(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light.copyWith(
+          statusBarColor: Colors.transparent,
+          systemNavigationBarColor: Colors.transparent),
+      child: Scaffold(
       backgroundColor: Brand.navy,
       body: SafeArea(
         child: Padding(
@@ -354,6 +358,7 @@ class AlertPage extends StatelessWidget {
           ),
         ),
       ),
+    ),
     );
   }
 }
