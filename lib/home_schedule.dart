@@ -37,7 +37,7 @@ class _TodayPageState extends State<TodayPage> {
       }
     }
     final nextSlot = next;
-    final rest = upcoming.where((s) => s != nextSlot).toList();
+    final rest = all.where((s) => s != nextSlot).toList();
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
@@ -97,19 +97,22 @@ class _TodayPageState extends State<TodayPage> {
             radius: 28,
             padding: const EdgeInsets.all(24),
             child: Center(
-                child: Text(tr('noClasses'),
+                child: Text(all.isEmpty ? tr('noClasses') : tr('doneToday'),
                     style: TextStyle(color: p.muted, fontSize: 15))),
           ),
         if (rest.isNotEmpty) ...[
           const SizedBox(height: 18),
-          Text(tr('restOfDay'),
+          Text(nextSlot != null ? tr('restOfDay') : tr('daySchedule'),
               style:
                   const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
           const SizedBox(height: 14),
           for (final s in rest) ...[
-            GestureDetector(
-                onTap: () => openTimetableEditor(context, s),
-                child: TimelineRow(label: fmtTime(s.start), slot: s)),
+            Opacity(
+              opacity: (isToday && s.start.totalMinutes <= nowMin) ? 0.5 : 1,
+              child: GestureDetector(
+                  onTap: () => openTimetableEditor(context, s),
+                  child: TimelineRow(label: fmtTime(s.start), slot: s)),
+            ),
             const SizedBox(height: 12),
           ],
         ],
