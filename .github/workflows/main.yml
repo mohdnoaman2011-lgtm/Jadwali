@@ -1,56 +1,39 @@
-name: Build APK
+name: Build Android APK
 
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: subosito/flutter-action@v2
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
         with:
           channel: stable
-          cache: false
+          cache: true
 
-      - name: List files
-        run: ls -R lib tool pubspec.yaml
+      - name: Flutter version
+        run: flutter --version
 
-      - name: Create Android project
-        run: '[ -d android ] || flutter create . --platforms=android --project-name jadwali'
-
-      - name: Relax Kotlin JVM target validation
-        run: echo "kotlin.jvm.target.validation.mode=warning" >> android/gradle.properties
-
-      - name: Enable core library desugaring
-        run: |
-          sed -i '/compileOptions {/a\        isCoreLibraryDesugaringEnabled = true' android/app/build.gradle.kts
-          printf '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n' >> android/app/build.gradle.kts
-          grep -n "isCoreLibraryDesugaringEnabled" android/app/build.gradle.kts
-
-      - name: Patch Android (ringtone picker and notifications)
-        run: |
-          cp tool/MainActivity.kt android/app/src/main/kotlin/com/example/jadwali/MainActivity.kt
-          python3 tool/patch_manifest.py
-
-      - name: Prepare assets
-        run: |
-          mkdir -p assets
-          [ -f assets/logo.png ] || : > assets/logo.png
-
-      - name: Get packages
+      - name: Install packages
         run: flutter pub get
 
-      - name: Generate launcher icons
-        run: |
-          if [ -s assets/icon.png ] && [ -s assets/icon_foreground.png ]; then
-            dart run flutter_launcher_icons
-          else
-            echo "No icon files, skipping"
-          fi
+      - name: Analyze (does not block the build)
+        run: flutter analyze
+        continue-on-error: true
 
       - name: Build release APK
         run: flutter build apk --release
