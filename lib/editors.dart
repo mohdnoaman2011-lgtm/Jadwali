@@ -160,15 +160,20 @@ class _TimetableEditPageState extends State<TimetableEditPage> {
         child: Text(s,
             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)));
 
-    InputDecoration deco() => InputDecoration(
-          filled: true,
-          fillColor: p.surface,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(18),
-              borderSide: BorderSide.none),
-        );
+    InputDecoration deco() {
+      final b = OutlineInputBorder(
+          borderRadius: BorderRadius.circular(20),
+          borderSide: BorderSide.none);
+      return InputDecoration(
+        filled: true,
+        fillColor: p.surface,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        border: b,
+        enabledBorder: b,
+        focusedBorder: b,
+      );
+    }
 
     return Scaffold(
       body: SafeArea(
