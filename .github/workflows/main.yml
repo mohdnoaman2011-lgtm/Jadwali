@@ -2,7 +2,7 @@ name: Build APK
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -11,30 +11,52 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
-          cache: true
+          cache: false
 
-      - name: Generate Android project files
-        run: flutter create . --platforms=android --project-name jadwali
+      - name: List files
+        run: ls -R lib tool pubspec.yaml
 
-      - name: Add notification permissions and desugaring
-        run: python3 tools/patch_android.py
+      - name: Create Android project
+        run: '[ -d android ] || flutter create . --platforms=android --project-name jadwali'
 
-      - run: flutter pub get
+      - name: Relax Kotlin JVM target validation
+        run: echo "kotlin.jvm.target.validation.mode=warning" >> android/gradle.properties
 
-      - name: Generate app icon from the Jadwali logo
-        run: dart run flutter_launcher_icons
+      - name: Enable core library desugaring
+        run: |
+          sed -i '/compileOptions {/a\        isCoreLibraryDesugaringEnabled = true' android/app/build.gradle.kts
+          printf '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n' >> android/app/build.gradle.kts
+          grep -n "isCoreLibraryDesugaringEnabled" android/app/build.gradle.kts
 
-      - run: flutter build apk --release
+      - name: Patch Android (ringtone picker and notifications)
+        run: |
+          cp tool/MainActivity.kt android/app/src/main/kotlin/com/example/jadwali/MainActivity.kt
+          python3 tool/patch_manifest.py
 
-      - uses: actions/upload-artifact@v4
+      - name: Prepare assets
+        run: |
+          mkdir -p assets
+          [ -f assets/logo.png ] || : > assets/logo.png
+
+      - name: Get packages
+        run: flutter pub get
+
+      - name: Generate launcher icons
+        run: |
+          if [ -s assets/icon.png ] && [ -s assets/icon_foreground.png ]; then
+            dart run flutter_launcher_icons
+          else
+            echo "No icon files, skipping"
+          fi
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
           name: jadwali-apk
           path: build/app/outputs/flutter-apk/app-release.apk
