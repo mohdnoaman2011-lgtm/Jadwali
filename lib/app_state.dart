@@ -12,34 +12,26 @@ const _weekdayOf = {
 class Lecture {
   Lecture({
     required this.id,
-    required this.code,
     required this.nameAr,
     required this.nameEn,
     required this.day,
-    required this.start,
-    required this.end,
+    required this.startMin,
+    required this.endMin,
     required this.room,
     required this.prof,
     required this.color,
   });
 
   final int id;
-  String code, nameAr, nameEn, day, start, end, room, prof;
+  String nameAr, nameEn, day, room, prof;
+  int startMin, endMin; // minutes since midnight
   Color color;
 
   String name(bool ar) => ar ? nameAr : nameEn;
 
-  /// Minutes since midnight, parsed from "10:00 AM" / "13:30".
-  int get startMinutes {
-    final m = RegExp(r'(\d{1,2}):(\d{2})\s*([AaPp][Mm])?').firstMatch(start.trim());
-    if (m == null) return 0;
-    var h = int.parse(m[1]!);
-    final min = int.parse(m[2]!);
-    final ap = m[3]?.toLowerCase();
-    if (ap == 'pm' && h < 12) h += 12;
-    if (ap == 'am' && h == 12) h = 0;
-    return h * 60 + min;
-  }
+  int get weekday => _weekdayOf[day]!;
+
+  int get startMinutes => startMin;
 
   DateTime nextStart(DateTime now) {
     final diff = (_weekdayOf[day]! - now.weekday) % 7;
@@ -56,19 +48,22 @@ class Task {
     required this.id,
     required this.titleAr,
     required this.titleEn,
-    required this.subAr,
-    required this.subEn,
+    required this.courseAr,
+    required this.courseEn,
+    required this.due,
     required this.type,
     this.done = false,
   });
 
   final int id;
-  String titleAr, titleEn, subAr, subEn;
+  String titleAr, titleEn, courseAr, courseEn;
+  DateTime due;
   TaskType type;
   bool done;
 
   String title(bool ar) => ar ? titleAr : titleEn;
-  String sub(bool ar) => ar ? subAr : subEn;
+  String course(bool ar) => ar ? courseAr : courseEn;
+  bool get overdue => !done && due.isBefore(DateTime.now());
 }
 
 class Profile {
@@ -94,6 +89,37 @@ class AppState extends ChangeNotifier {
   List<String> get tones => _tones[lang]!;
   String dayName(String key) => _days[lang]![key]!;
   String weekdayName(int weekday) => _weekdays[lang]![weekday - 1];
+  /// 12-hour clock with a localized suffix, e.g. "10:30 ص" / "10:30 AM".
+  String time(int minutes) {
+    final h = minutes ~/ 60, m = minutes % 60;
+    final h12 = h % 12 == 0 ? 12 : h % 12;
+    final suffix = h < 12 ? (ar ? 'ص' : 'AM') : (ar ? 'م' : 'PM');
+    return '$h12:${m.toString().padLeft(2, '0')} $suffix';
+  }
+
+  String range(Lecture l) => '${time(l.startMin)} – ${time(l.endMin)}';
+
+  /// "Today • 14/10", "Tomorrow • 15/10" or "Thursday 22/10".
+  String dayLabel(DateTime d) {
+    final now = DateTime.now();
+    final diff = DateTime(d.year, d.month, d.day).difference(DateTime(now.year, now.month, now.day)).inDays;
+    if (diff == 0) return '${ar ? 'اليوم' : 'Today'} • ${d.day}/${d.month}';
+    if (diff == 1) return '${ar ? 'غداً' : 'Tomorrow'} • ${d.day}/${d.month}';
+    return '${weekdayName(d.weekday)} ${d.day}/${d.month}';
+  }
+
+  /// "Today, 12:00 PM" / "غداً، 12:00 م" / "الخميس 22/10، 11:59 م".
+  String dueLabel(DateTime d) {
+    final now = DateTime.now();
+    final diff = DateTime(d.year, d.month, d.day).difference(DateTime(now.year, now.month, now.day)).inDays;
+    final day = diff == 0
+        ? (ar ? 'اليوم' : 'Today')
+        : diff == 1
+            ? (ar ? 'غداً' : 'Tomorrow')
+            : '${weekdayName(d.weekday)} ${d.day}/${d.month}';
+    return '$day${ar ? '،' : ','} ${time(d.hour * 60 + d.minute)}';
+  }
+
   String get todayKey {
     const m = {1: 'mon', 2: 'tue', 3: 'wed', 4: 'thu', 5: 'fri', 6: 'sat', 7: 'sun'};
     return m[DateTime.now().weekday]!;
@@ -107,15 +133,22 @@ class AppState extends ChangeNotifier {
       studentId: '441098234',
     );
     lectures = [
-      Lecture(id: 1, code: 'NET201', nameAr: 'شبكات الحاسوب', nameEn: 'Computer Networks', day: 'sun', start: '08:00 AM', end: '09:30 AM', room: 'Hall 102', prof: 'Dr. Khaled', color: const Color(0xFFD97706)),
-      Lecture(id: 2, code: 'AI401', nameAr: 'الذكاء الاصطناعي', nameEn: 'Artificial Intelligence', day: 'mon', start: '10:00 AM', end: '11:30 AM', room: 'Hall 405', prof: 'Dr. Ibrahim', color: const Color(0xFFE11D48)),
-      Lecture(id: 3, code: 'SE302', nameAr: 'هندسة البرمجيات', nameEn: 'Software Engineering', day: 'wed', start: '10:00 AM', end: '11:30 AM', room: 'Hall 304', prof: 'Dr. Ahmed', color: const Color(0xFF4F46E5)),
-      Lecture(id: 4, code: 'CS311', nameAr: 'قواعد البيانات المتقدمة', nameEn: 'Advanced Databases', day: 'wed', start: '12:00 PM', end: '01:30 PM', room: 'Lab 2', prof: 'Dr. Sarah', color: const Color(0xFF059669)),
+      Lecture(id: 1, nameAr: 'شبكات الحاسوب', nameEn: 'Computer Networks', day: 'sun', startMin: 480, endMin: 570, room: 'Hall 102', prof: 'Dr. Khaled', color: const Color(0xFFD97706)),
+      Lecture(id: 2, nameAr: 'الذكاء الاصطناعي', nameEn: 'Artificial Intelligence', day: 'mon', startMin: 600, endMin: 690, room: 'Hall 405', prof: 'Dr. Ibrahim', color: const Color(0xFFE11D48)),
+      Lecture(id: 3, nameAr: 'هندسة البرمجيات', nameEn: 'Software Engineering', day: 'wed', startMin: 600, endMin: 690, room: 'Hall 304', prof: 'Dr. Ahmed', color: const Color(0xFF4F46E5)),
+      Lecture(id: 4, nameAr: 'قواعد البيانات المتقدمة', nameEn: 'Advanced Databases', day: 'wed', startMin: 720, endMin: 810, room: 'Lab 2', prof: 'Dr. Sarah', color: const Color(0xFF059669)),
     ];
+    final now = DateTime.now();
+    DateTime at(int plusDays, int h, int m) => DateTime(now.year, now.month, now.day + plusDays, h, m);
+    DateTime nextDow(int weekday, int h, int m) {
+      final d = (weekday - now.weekday) % 7;
+      return at(d == 0 ? 7 : d, h, m);
+    }
+
     tasks = [
-      Task(id: 1, titleAr: 'تسليم مشروع البرمجة الكائنية', titleEn: 'OOP Project Submission', subAr: 'هندسة البرمجيات • غداً، 12:00 م', subEn: 'Software Engineering • Tomorrow, 12:00 PM', type: TaskType.project),
-      Task(id: 2, titleAr: 'اختبار قصير في شبكات الحاسوب', titleEn: 'Networks Quiz', subAr: 'شبكات الحاسوب • الأحد القادم', subEn: 'Computer Networks • Next Sunday', type: TaskType.exam),
-      Task(id: 3, titleAr: 'حل واجب قواعد البيانات', titleEn: 'Database Assignment 1', subAr: 'قواعد البيانات • الخميس القادم', subEn: 'Databases • Next Thursday', type: TaskType.assignment, done: true),
+      Task(id: 1, titleAr: 'تسليم مشروع البرمجة الكائنية', titleEn: 'OOP Project Submission', courseAr: 'هندسة البرمجيات', courseEn: 'Software Engineering', due: at(1, 12, 0), type: TaskType.project),
+      Task(id: 2, titleAr: 'اختبار قصير في شبكات الحاسوب', titleEn: 'Networks Quiz', courseAr: 'شبكات الحاسوب', courseEn: 'Computer Networks', due: nextDow(DateTime.sunday, 10, 0), type: TaskType.exam),
+      Task(id: 3, titleAr: 'حل واجب قواعد البيانات', titleEn: 'Database Assignment 1', courseAr: 'قواعد البيانات', courseEn: 'Databases', due: nextDow(DateTime.thursday, 23, 59), type: TaskType.assignment, done: true),
     ];
     if (notify) notifyListeners();
   }
@@ -153,8 +186,8 @@ const _weekdays = {
 };
 
 const _tones = {
-  'ar': ['جرس كلاسيكي', 'نغمة هادئة', 'تنبيه حاد', 'اهتزاز فقط'],
-  'en': ['Classic bell', 'Calm chime', 'Sharp alert', 'Vibrate only'],
+  'ar': ['نغمة التنبيه الافتراضية', 'نغمة الرنين', 'نغمة المنبه', 'اهتزاز فقط'],
+  'en': ['Default notification', 'Ringtone', 'Alarm', 'Vibrate only'],
 };
 
 const _strings = {
@@ -169,15 +202,15 @@ const _strings = {
     'student_details': 'بيانات الطالب', 'edit': 'تعديل', 'university': 'الجامعة', 'student_id': 'الرقم الجامعي',
     'preferences': 'تفضيلات التطبيق', 'language': 'لغة التطبيق', 'language_desc': 'اختر لغة واجهة التطبيق',
     'dark_mode': 'الوضع الليلي', 'notifications': 'التنبيهات', 'notifications_desc': 'تنبيه قبل بدء المحاضرة بـ 15 دقيقة',
-    'tone': 'نغمة التنبيه', 'off': 'متوقفة', 'clear_data': 'مسح كافة البيانات المخزنة', 'clear': 'مسح', 'cleared': 'تمت إعادة ضبط البيانات',
+    'tone': 'نغمة التنبيه', 'test_title': 'تجربة التنبيه', 'test_desc': 'أرسل تنبيهاً الآن للتأكد من عمله', 'send': 'إرسال', 'starts_in': 'تبدأ بعد 15 دقيقة', 'test_body': 'هذا تنبيه تجريبي من جدولي', 'off': 'متوقفة', 'clear_data': 'مسح كافة البيانات المخزنة', 'clear': 'مسح', 'cleared': 'تمت إعادة ضبط البيانات',
     'ask_add': 'ماذا تريد أن تضيف؟', 'new_lecture': 'محاضرة جديدة', 'new_task': 'مهمة / واجب', 'cancel': 'إلغاء', 'done': 'تم',
     'task_sheet': 'إضافة مهمة أو واجب', 'task_title': 'عنوان المهمة', 'task_type': 'نوع المهمة', 'course_name': 'اسم المادة',
     'deadline': 'موعد التسليم', 'save_task': 'حفظ المهمة',
-    'lecture_add': 'إضافة محاضرة جديدة', 'lecture_edit': 'تعديل بيانات المحاضرة', 'course_code': 'رمز المادة', 'day': 'اليوم',
+    'lecture_add': 'إضافة محاضرة جديدة', 'lecture_edit': 'تعديل بيانات المحاضرة', 'day': 'اليوم',
     'room': 'القاعة / المبنى', 'start_time': 'وقت البداية', 'end_time': 'وقت النهاية', 'professor': 'أستاذ المادة', 'color_tag': 'لون التمييز',
     'save_lecture': 'حفظ المحاضرة', 'update_lecture': 'تحديث المحاضرة',
     'edit_profile': 'تعديل ملف الطالب', 'full_name': 'اسم الطالب الكامل', 'uni_college': 'الجامعة / الكلية', 'major': 'التخصص', 'save_profile': 'حفظ البيانات',
-    'delete_lecture_q': 'هل تريد حذف هذه المحاضرة؟', 'delete': 'حذف', 'required': 'هذا الحقل مطلوب',
+    'delete_lecture_q': 'هل تريد حذف هذه المحاضرة؟', 'delete': 'حذف', 'required': 'هذا الحقل مطلوب', 'date': 'التاريخ', 'time': 'الوقت', 'today': 'اليوم', 'tomorrow': 'غداً', 'in_week': 'بعد أسبوع', 'pick_date': 'اختر التاريخ', 'past_deadline': 'هذا الموعد في الماضي', 'end_after_start': 'يجب أن يكون وقت النهاية بعد وقت البداية', 'pick_deadline': 'اختر التاريخ والوقت',
   },
   'en': {
     'nav_home': 'Dashboard', 'nav_schedule': 'Timetable', 'nav_tasks': 'Tasks', 'nav_settings': 'Settings',
@@ -190,14 +223,14 @@ const _strings = {
     'student_details': 'Student Details', 'edit': 'Edit', 'university': 'University', 'student_id': 'Student ID',
     'preferences': 'App Preferences', 'language': 'Language', 'language_desc': 'Select UI language',
     'dark_mode': 'Dark Mode', 'notifications': 'Notifications', 'notifications_desc': 'Alert 15 minutes before lectures',
-    'tone': 'Notification Tone', 'off': 'Off', 'clear_data': 'Clear stored data', 'clear': 'Clear', 'cleared': 'Data reset successfully',
+    'tone': 'Notification Tone', 'test_title': 'Test notification', 'test_desc': 'Send a notification now to check it works', 'send': 'Send', 'starts_in': 'Starts in 15 minutes', 'test_body': 'This is a test notification from Jadwali', 'off': 'Off', 'clear_data': 'Clear stored data', 'clear': 'Clear', 'cleared': 'Data reset successfully',
     'ask_add': 'What do you want to add?', 'new_lecture': 'New Lecture', 'new_task': 'Task / Assignment', 'cancel': 'Cancel', 'done': 'Done',
     'task_sheet': 'Add Task or Assignment', 'task_title': 'Task Title', 'task_type': 'Task Type', 'course_name': 'Course Name',
     'deadline': 'Deadline', 'save_task': 'Save Task',
-    'lecture_add': 'Add New Lecture', 'lecture_edit': 'Edit Lecture Details', 'course_code': 'Course Code', 'day': 'Day',
+    'lecture_add': 'Add New Lecture', 'lecture_edit': 'Edit Lecture Details', 'day': 'Day',
     'room': 'Room / Building', 'start_time': 'Start Time', 'end_time': 'End Time', 'professor': 'Professor', 'color_tag': 'Color Tag',
     'save_lecture': 'Save Lecture', 'update_lecture': 'Update Lecture',
     'edit_profile': 'Edit Student Profile', 'full_name': 'Full Name', 'uni_college': 'University / College', 'major': 'Major', 'save_profile': 'Save Profile',
-    'delete_lecture_q': 'Delete this lecture?', 'delete': 'Delete', 'required': 'This field is required',
+    'delete_lecture_q': 'Delete this lecture?', 'delete': 'Delete', 'required': 'This field is required', 'date': 'Date', 'time': 'Time', 'today': 'Today', 'tomorrow': 'Tomorrow', 'in_week': 'In a week', 'pick_date': 'Pick a date', 'past_deadline': 'This deadline is in the past', 'end_after_start': 'End time must be after start time', 'pick_deadline': 'Pick a date and time',
   },
 };
