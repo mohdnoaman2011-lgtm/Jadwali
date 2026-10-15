@@ -24,7 +24,14 @@ jobs:
       - name: Generate Android project files
         run: flutter create . --platforms=android --project-name jadwali
 
+      - name: Add notification permissions and desugaring
+        run: python3 tools/patch_android.py
+
       - run: flutter pub get
+
+      - name: Generate app icon from the Jadwali logo
+        run: dart run flutter_launcher_icons
+
       - run: flutter build apk --release
 
       - uses: actions/upload-artifact@v4
