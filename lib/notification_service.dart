@@ -59,8 +59,10 @@ class NotificationService {
 
   /// Re-schedules everything when lectures, tone, language or the on/off switch change.
   Future<void> sync(AppState s) async {
-    final sig = '${s.notifications}|${s.tone}|${s.lang}|'
-        '${s.lectures.map((l) => '${l.id}${l.day}${l.start}${l.nameAr}${l.nameEn}${l.room}').join(',')}';
+    final lectures = s.lectures
+        .map((l) => [l.id, l.day, l.startMin, l.nameAr, l.nameEn, l.room].join(':'))
+        .join(',');
+    final sig = [s.notifications, s.tone, s.lang, lectures].join('|');
     if (sig == _signature) return;
     _signature = sig;
     await init();
