@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'app_state.dart';
 import 'main.dart';
+import 'notification_service.dart';
 import 'sheets.dart';
 
 const brand = Color(0xFF4F46E5);
@@ -64,10 +65,11 @@ class PillBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
     return SizedBox(
-      height: 60,
+      height: 72,
       child: ListView.separated(
+        clipBehavior: Clip.none,
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(2, 4, 2, 12),
+        padding: const EdgeInsets.fromLTRB(8, 10, 8, 14),
         itemCount: labels.length,
         separatorBuilder: (_, __) => const SizedBox(width: 10),
         itemBuilder: (_, i) {
@@ -121,58 +123,70 @@ class LectureCard extends StatelessWidget {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final sub = Theme.of(context).hintColor;
     final l = lecture;
+
+    Widget info(IconData icon, String text) => Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 14, color: brand),
+          const SizedBox(width: 4),
+          Text(text, style: TextStyle(fontSize: 11.5, color: sub, fontWeight: FontWeight.w600)),
+        ]);
+
+    Widget action(IconData icon, VoidCallback onTap) => IconButton(
+          onPressed: onTap,
+          icon: Icon(icon, size: 18),
+          color: sub,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+        );
+
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: dark ? const Color(0xFF334155) : const Color(0xFFE0E7FF)),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(21),
+        borderRadius: BorderRadius.circular(17),
         child: Container(
           color: dark ? const Color(0xFF1E1B4B) : const Color(0xFFEEF2FF),
           child: IntrinsicHeight(
             child: Row(children: [
-              Container(width: 5, color: l.color),
+              Container(width: 4, color: l.color),
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
+                  padding: const EdgeInsetsDirectional.fromSTEB(12, 4, 4, 10),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Row(children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                         decoration: BoxDecoration(
                           color: dark ? const Color(0xFF312E81) : const Color(0xFFE0E7FF),
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Text(s.dayName(l.day), style: const TextStyle(color: brand, fontSize: 12, fontWeight: FontWeight.w800)),
+                        child: Text(s.dayName(l.day), style: const TextStyle(color: brand, fontSize: 11, fontWeight: FontWeight.w800)),
                       ),
                       const SizedBox(width: 8),
-                      Text(l.code, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: sub)),
-                      const Spacer(),
-                      IconButton(onPressed: onEdit, icon: const Icon(Icons.edit_outlined, size: 20), color: sub),
-                      IconButton(onPressed: onDelete, icon: const Icon(Icons.delete_outline, size: 20), color: sub),
+                      Expanded(
+                        child: Text(
+                          l.name(s.ar),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                      action(Icons.edit_outlined, onEdit),
+                      action(Icons.delete_outline, onDelete),
                     ]),
-                    Text(l.name(s.ar), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 8),
-                    Row(children: [
-                      const Icon(Icons.schedule, size: 16, color: brand),
-                      const SizedBox(width: 5),
-                      Text('${l.start} - ${l.end}', style: TextStyle(fontSize: 12, color: sub, fontWeight: FontWeight.w600)),
-                      const SizedBox(width: 18),
-                      const Icon(Icons.place_outlined, size: 16, color: brand),
-                      const SizedBox(width: 5),
-                      Text(l.room, style: TextStyle(fontSize: 12, color: sub, fontWeight: FontWeight.w600)),
-                    ]),
-                    const Divider(height: 22),
-                    Row(children: [
-                      Icon(Icons.how_to_reg_outlined, size: 16, color: sub),
-                      const SizedBox(width: 5),
-                      Text(l.prof, style: TextStyle(fontSize: 12, color: sub, fontWeight: FontWeight.w600)),
-                      const Spacer(),
-                      const Icon(Icons.notifications_none, size: 16, color: brand),
-                      const SizedBox(width: 4),
-                      Text(s.t('reminder'), style: const TextStyle(fontSize: 12, color: brand, fontWeight: FontWeight.w800)),
-                    ]),
+                    Padding(
+                      padding: const EdgeInsetsDirectional.only(end: 8),
+                      child: Wrap(
+                        spacing: 14,
+                        runSpacing: 4,
+                        children: [
+                          info(Icons.schedule, s.range(l)),
+                          info(Icons.place_outlined, l.room),
+                          info(Icons.how_to_reg_outlined, l.prof),
+                        ],
+                      ),
+                    ),
                   ]),
                 ),
               ),
@@ -208,7 +222,8 @@ class TaskTile extends StatelessWidget {
                 color: task.done ? sub : null,
               ),
             ),
-            Text(task.sub(s.ar), style: TextStyle(fontSize: 11.5, color: sub)),
+            Text('${task.course(s.ar)} • ${s.dueLabel(task.due)}',
+                style: TextStyle(fontSize: 11.5, color: task.overdue ? Theme.of(context).colorScheme.error : sub)),
           ]),
         ),
         if (showDelete)
@@ -241,14 +256,11 @@ class _HomeShellState extends State<HomeShell> {
       const TasksPage(),
       const SettingsPage(),
     ];
-    final letter = s.profile.name.trim().isEmpty ? '?' : s.profile.name.trim().characters.first;
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 68,
         titleSpacing: 16,
         title: Row(children: [
-          Avatar(letter: letter, onTap: () => setState(() => _i = 3)),
-          const SizedBox(width: 10),
           Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
             Text(titles[_i], style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
             Text('${s.weekdayName(now.weekday)}، ${now.day}/${now.month}',
@@ -263,9 +275,11 @@ class _HomeShellState extends State<HomeShell> {
           : FloatingActionButton(
               backgroundColor: brand,
               foregroundColor: Colors.white,
-              shape: const CircleBorder(),
+              elevation: 3,
+              highlightElevation: 5,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
               onPressed: () => showAddChooser(context),
-              child: const Icon(Icons.add, size: 30),
+              child: const Icon(Icons.add_rounded, size: 30),
             ),
       bottomNavigationBar: NavigationBar(
         height: 68,
@@ -324,26 +338,11 @@ class _DashboardPageState extends State<DashboardPage> {
     }
     final today = s.lectures.where((l) => l.day == s.todayKey).toList()
       ..sort((a, b) => a.startMinutes.compareTo(b.startMinutes));
-    final pending = s.tasks.where((t) => !t.done).take(3).toList();
-    final p = s.profile;
+    final pending = (s.tasks.where((t) => !t.done).toList()..sort((a, b) => a.due.compareTo(b.due))).take(3).toList();
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 96),
       children: [
-        AppCard(
-          child: Row(children: [
-            Avatar(letter: p.name.trim().isEmpty ? '?' : p.name.trim().characters.first, size: 48),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(s.t('welcome'), style: const TextStyle(color: brand, fontSize: 12, fontWeight: FontWeight.w700)),
-                Text(p.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-                Text('${p.university} • ${p.major}', style: TextStyle(fontSize: 11.5, color: sub)),
-              ]),
-            ),
-          ]),
-        ),
-        const SizedBox(height: 12),
         if (next != null && at != null) _NextLectureCard(lecture: next, at: at, now: now),
         const SizedBox(height: 14),
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
@@ -358,8 +357,8 @@ class _DashboardPageState extends State<DashboardPage> {
               const SizedBox(width: 12),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('${l.code}  ${l.name(s.ar)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
-                  Text('${l.start} - ${l.end} • ${l.room}', style: TextStyle(fontSize: 11.5, color: sub)),
+                  Text(l.name(s.ar), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
+                  Text('${s.range(l)} • ${l.room}', style: TextStyle(fontSize: 11.5, color: sub)),
                 ]),
               ),
             ]),
@@ -399,14 +398,14 @@ class _NextLectureCard extends StatelessWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(s.t('next_lecture'), style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w700)),
         const SizedBox(height: 6),
-        Text('${lecture.code}  ${lecture.name(s.ar)}', style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w800)),
+        Text(lecture.name(s.ar), style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w800)),
         const SizedBox(height: 10),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(color: Colors.black.withOpacity(.15), borderRadius: BorderRadius.circular(14)),
           child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            Text('${lecture.start} - ${lecture.end}', style: const TextStyle(color: Colors.white, fontSize: 12.5)),
-            Text(lecture.room, style: const TextStyle(color: Colors.white, fontSize: 12.5)),
+            Text(s.range(lecture), style: const TextStyle(color: Colors.white, fontSize: 12.5)),
+            Text(lecture.room, textDirection: TextDirection.ltr, style: const TextStyle(color: Colors.white, fontSize: 12.5)),
           ]),
         ),
         const SizedBox(height: 10),
@@ -466,7 +465,7 @@ class _SchedulePageState extends State<SchedulePage> {
         if (rows.isEmpty) EmptyCard(s.t('no_lectures_day')),
         for (final l in rows) ...[
           LectureCard(lecture: l, onEdit: () => showLectureSheet(context, edit: l), onDelete: () => _confirmDelete(l)),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
         ],
       ],
     );
@@ -489,7 +488,11 @@ class _TasksPageState extends State<TasksPage> {
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
     final types = [null, TaskType.assignment, TaskType.exam, TaskType.project];
-    final rows = s.tasks.where((t) => types[_f] == null || t.type == types[_f]).toList();
+    final rows = s.tasks.where((t) => types[_f] == null || t.type == types[_f]).toList()
+      ..sort((a, b) {
+        if (a.done != b.done) return a.done ? 1 : -1;
+        return a.due.compareTo(b.due);
+      });
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 96),
       children: [
@@ -514,7 +517,6 @@ class SettingsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
     final sub = Theme.of(context).hintColor;
-    final p = s.profile;
 
     Widget row(String title, {String? desc, required Widget trailing, VoidCallback? onTap, Color? color}) => AppCard(
           padding: EdgeInsets.zero,
@@ -539,41 +541,6 @@ class SettingsPage extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
       children: [
-        AppCard(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Text(s.t('student_details'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
-              TextButton(onPressed: () => showProfileSheet(context), child: Text(s.t('edit'))),
-            ]),
-            Row(children: [
-              Avatar(letter: p.name.trim().isEmpty ? '?' : p.name.trim().characters.first, size: 56),
-              const SizedBox(width: 12),
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(p.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-                Text(p.major, style: TextStyle(fontSize: 11.5, color: sub)),
-              ]),
-            ]),
-            const SizedBox(height: 12),
-            Row(children: [
-              for (final e in [(s.t('university'), p.university), (s.t('student_id'), p.studentId)])
-                Expanded(
-                  child: Container(
-                    margin: const EdgeInsetsDirectional.only(end: 10),
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(.4),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(e.$1, style: TextStyle(fontSize: 11.5, color: sub)),
-                      Text(e.$2, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-                    ]),
-                  ),
-                ),
-            ]),
-          ]),
-        ),
-        const SizedBox(height: 14),
         Text(s.t('preferences'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: sub)),
         const SizedBox(height: 8),
         row(
@@ -602,6 +569,15 @@ class SettingsPage extends StatelessWidget {
             desc: s.notifications ? s.tones[s.tone] : s.t('off'),
             trailing: const Icon(Icons.chevron_right),
             onTap: s.notifications ? () => showToneSheet(context) : null,
+          ),
+        ),
+        const SizedBox(height: 10),
+        row(
+          s.t('test_title'),
+          desc: s.t('test_desc'),
+          trailing: FilledButton.tonal(
+            onPressed: () => NotificationService.instance.showTest(s),
+            child: Text(s.t('send')),
           ),
         ),
         const SizedBox(height: 10),
