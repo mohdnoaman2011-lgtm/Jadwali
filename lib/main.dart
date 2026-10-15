@@ -133,7 +133,7 @@ class _SplashScreenState extends State<SplashScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Image.asset('assets/logo.png', width: 220),
+                      Image.asset('assets/icon/logo.png', width: 220),
                       const SizedBox(height: 28),
                       Text(
                         s.t('tagline'),
