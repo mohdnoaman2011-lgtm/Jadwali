@@ -3,9 +3,13 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'app_state.dart';
+import 'notification_service.dart';
 import 'screens.dart';
 
-void main() => runApp(const JadwaliApp());
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const JadwaliApp());
+}
 
 /// Gives every widget access to the shared [AppState].
 class AppScope extends InheritedNotifier<AppState> {
@@ -26,7 +30,17 @@ class _JadwaliAppState extends State<JadwaliApp> {
   final AppState _state = AppState();
 
   @override
+  void initState() {
+    super.initState();
+    _state.addListener(_onStateChanged);
+    NotificationService.instance.sync(_state); // schedules lecture reminders
+  }
+
+  void _onStateChanged() => NotificationService.instance.sync(_state);
+
+  @override
   void dispose() {
+    _state.removeListener(_onStateChanged);
     _state.dispose();
     super.dispose();
   }
@@ -111,13 +125,33 @@ class _SplashScreenState extends State<SplashScreen> {
       backgroundColor: const Color(0xFFFEFEFE), // matches the logo's background
       body: SafeArea(
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset('assets/logo.png', width: 300, height: 300),
-            const SizedBox(height: 24),
-            Text(
-              s.t('tagline'),
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF475569)),
+            Expanded(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Image.asset('assets/logo.png', width: 220),
+                      const SizedBox(height: 28),
+                      Text(
+                        s.t('tagline'),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF475569)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.only(bottom: 56),
+              child: SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(strokeWidth: 3, color: Color(0xFF0B2A6B)),
+              ),
             ),
           ],
         ),
