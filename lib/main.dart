@@ -14,6 +14,7 @@ import 'package:timezone/timezone.dart' as tz;
 part 'p2.dart';
 part 'p3.dart';
 part 'p4.dart';
+part 'p5.dart';
 
 // ───────────────────────── النصوص / Strings ─────────────────────────
 
