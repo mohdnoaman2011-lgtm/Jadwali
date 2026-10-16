@@ -742,8 +742,8 @@ class _ShellPageState extends State<ShellPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(on ? iconOn : icon, size: 22, color: on ? p.pri : p.muted),
-            const SizedBox(height: 2),
-            Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11.5, fontWeight: on ? FontWeight.w700 : FontWeight.w500, color: on ? p.pri : p.muted)),
+            const SizedBox(height: 1),
+            Text(label, maxLines: 2, textAlign: TextAlign.center, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10.5, height: 1.1, fontWeight: on ? FontWeight.w700 : FontWeight.w500, color: on ? p.pri : p.muted)),
           ],
         ),
       ),
@@ -932,15 +932,24 @@ class HomePage extends StatelessWidget {
 
       children.add(Row(
         children: [
-          Expanded(child: _tile(p, a.t('lecCount'), '${today.length}', onOpenWeek)),
+          Expanded(child: _tile(p, Icons.menu_book_outlined, p.pri, a.t('lecCount'), '${today.length}', onOpenWeek)),
           const SizedBox(width: 12),
-          Expanded(child: _tile(p, a.t('remCount'), '${pending.length}', onOpenReminders)),
+          Expanded(child: _tile(p, Icons.assignment_outlined, p.amberText, a.t('remCount'), '${pending.length}', onOpenReminders)),
         ],
       ));
       children.add(const SizedBox(height: 16));
 
       if (today.isEmpty) {
-        children.add(AppCard(child: Center(child: Text(a.t('noToday'), style: TextStyle(color: p.muted)))));
+        children.add(AppCard(
+          child: Row(
+            children: [
+              IconBox(icon: Icons.wb_sunny_outlined, bg: p.amber, fg: p.amberText),
+              const SizedBox(width: 14),
+              Expanded(child: Text(a.t('noToday'), style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700))),
+            ],
+          ),
+        ));
+        children.add(const SizedBox(height: 16));
       } else {
         if (next == null || nextAt == null || !today.any((l) => l.start > nowMin)) {
           children.add(AppCard(
@@ -962,16 +971,46 @@ class HomePage extends StatelessWidget {
           ));
           children.add(const SizedBox(height: 16));
         }
-        children.add(Row(
-          children: [
-            Expanded(child: Text(a.t('todayLec'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700))),
-            PillChip(label: a.t('viewWeek'), selected: false, onTap: onOpenWeek),
-          ],
-        ));
-        children.add(const SizedBox(height: 10));
+        children.add(_sectionTitle(a.t('todayLec'), '${today.length}', p));
+        children.add(const SizedBox(height: 12));
         for (final l in today) {
           children.add(Padding(padding: const EdgeInsets.only(bottom: 10), child: LectureRow(lecture: l, nowMin: nowMin)));
         }
+        children.add(const SizedBox(height: 6));
+      }
+
+      // محاضرات الأيام القادمة (بقية الأسبوع)
+      final upcoming = <MapEntry<DateTime, List<Lecture>>>[];
+      for (var d = 1; d <= 6; d++) {
+        final dt = DateTime(now.year, now.month, now.day + d);
+        if (!kWeekdays.contains(dt.weekday)) continue;
+        final ls = a.lectures.where((l) => l.weekday == dt.weekday).toList()..sort((x, y) => x.start.compareTo(y.start));
+        if (ls.isNotEmpty) upcoming.add(MapEntry(dt, ls));
+      }
+      if (upcoming.isNotEmpty) {
+        children.add(Row(
+          children: [
+            Expanded(child: Text(a.t('upcomingLec'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700))),
+            PillChip(label: a.t('viewWeek'), selected: false, onTap: onOpenWeek),
+          ],
+        ));
+        children.add(const SizedBox(height: 12));
+        for (final e in upcoming) {
+          children.add(Padding(
+            padding: const EdgeInsets.fromLTRB(4, 4, 4, 10),
+            child: Row(
+              children: [
+                Text('${a.dayLabel(e.key)} · ${a.shortDate(e.key)}', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: p.muted)),
+                const SizedBox(width: 8),
+                Expanded(child: Divider(height: 1, color: p.line)),
+              ],
+            ),
+          ));
+          for (final l in e.value) {
+            children.add(Padding(padding: const EdgeInsets.only(bottom: 10), child: LectureRow(lecture: l, nowMin: -1)));
+          }
+        }
+        children.add(const SizedBox(height: 6));
       }
 
       if (pending.isNotEmpty) {
@@ -1067,19 +1106,40 @@ class HomePage extends StatelessWidget {
         ),
       );
 
-  Widget _tile(Pal p, String label, String value, VoidCallback onTap) => AppCard(
+  Widget _sectionTitle(String t, String count, Pal p) => Row(
+        children: [
+          Text(t, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 2),
+            decoration: BoxDecoration(color: p.soft, borderRadius: BorderRadius.circular(12)),
+            child: Text(count, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: p.pri)),
+          ),
+        ],
+      );
+
+  Widget _tile(Pal p, IconData icon, Color c, String label, String value, VoidCallback onTap) => AppCard(
         onTap: onTap,
         padding: const EdgeInsets.all(14),
-        child: SizedBox(
-          height: 64,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(label, style: TextStyle(fontSize: 13.5, color: p.muted)),
-              Text(value, style: const TextStyle(fontSize: 26, height: 1.1, fontWeight: FontWeight.w700)),
-            ],
-          ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(color: c.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(15)),
+              child: Icon(icon, size: 22, color: c),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(value, style: const TextStyle(fontSize: 24, height: 1.1, fontWeight: FontWeight.w700)),
+                  Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, color: p.muted)),
+                ],
+              ),
+            ),
+          ],
         ),
       );
 }
