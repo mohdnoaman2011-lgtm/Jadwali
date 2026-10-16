@@ -161,13 +161,27 @@ class SettingsPage extends StatelessWidget {
     final p = Pal.of(context);
 
     Widget sec(String s) => Padding(
-          padding: const EdgeInsets.fromLTRB(4, 14, 4, 8),
-          child: Text(s, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: p.muted)),
+          padding: const EdgeInsetsDirectional.fromSTEB(6, 20, 6, 8),
+          child: Text(s, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: p.muted, letterSpacing: 0.3)),
         );
 
-    Widget lbl(String s) => Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Text(s, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: p.muted)),
+    // عنصر إعداد: أيقونة + عنوان، وتحته عنصر التحكم بعرض كامل
+    Widget setting(IconData icon, String title, Widget control) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  IconBox(icon: icon, size: 38),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text(title, style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700))),
+                ],
+              ),
+              const SizedBox(height: 12),
+              control,
+            ],
+          ),
         );
 
     Widget row(IconData icon, String title, {String? value, Color? color, Color? iconBg, VoidCallback? onTap, bool chevron = true}) {
@@ -175,13 +189,14 @@ class SettingsPage extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(vertical: 6),
           child: Row(
             children: [
-              IconBox(icon: icon, bg: iconBg, fg: color),
+              IconBox(icon: icon, bg: iconBg, fg: color, size: 38),
               const SizedBox(width: 12),
-              Expanded(child: Text(title, style: TextStyle(fontWeight: FontWeight.w600, color: color ?? p.text))),
-              if (value != null) Text(value, style: TextStyle(color: p.muted, fontSize: 13.5)),
+              Expanded(child: Text(title, style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w600, color: color ?? p.text))),
+              if (value != null)
+                Flexible(child: Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: p.muted, fontSize: 13.5))),
               if (chevron && onTap != null) ...[const SizedBox(width: 4), Icon(Icons.chevron_right, color: p.muted)],
             ],
           ),
@@ -189,86 +204,107 @@ class SettingsPage extends StatelessWidget {
       );
     }
 
+    Future<void> clearAll() async {
+      final ok = await confirmSheet(context, title: a.t('clearQ'), sub: a.t('clearD'), yes: a.t('yesClear'), no: a.t('cancel'));
+      if (!ok) return;
+      try {
+        await plugin.cancelAll().timeout(const Duration(seconds: 3));
+      } catch (_) {}
+      await a.update(() {
+        a.lectures.clear();
+        a.reminders.clear();
+      });
+      showToast(navKey.currentContext ?? context, a.t('cleared'));
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         PageTop(title: a.t('settings')),
         Expanded(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-            children: [
-              sec(a.t('appearance')),
-              AppCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    lbl(a.t('appearance')),
-                    Seg<ThemeMode>(
-                      items: {ThemeMode.light: a.t('light'), ThemeMode.dark: a.t('dark'), ThemeMode.system: a.t('system')},
-                      value: a.themeMode,
-                      onChanged: (v) => a.update(() => a.themeMode = v),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                children: [
+                  sec(a.t('appearance')),
+                  AppCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        setting(
+                          Icons.palette_outlined,
+                          a.t('appearance'),
+                          Seg<ThemeMode>(
+                            items: {ThemeMode.light: a.t('light'), ThemeMode.dark: a.t('dark'), ThemeMode.system: a.t('system')},
+                            value: a.themeMode,
+                            onChanged: (v) => a.update(() => a.themeMode = v),
+                          ),
+                        ),
+                        Divider(height: 28, color: p.line),
+                        setting(
+                          Icons.language,
+                          a.t('language'),
+                          Seg<String>(
+                            items: const {'ar': 'العربية', 'en': 'English'},
+                            value: a.lang,
+                            onChanged: (v) async {
+                              await a.update(() => a.lang = v);
+                              await rescheduleAll(a);
+                            },
+                          ),
+                        ),
+                        Divider(height: 28, color: p.line),
+                        setting(
+                          Icons.schedule,
+                          a.t('timeFormat'),
+                          Seg<bool>(
+                            items: {false: a.t('h12'), true: a.t('h24')},
+                            value: a.use24,
+                            onChanged: (v) async {
+                              await a.update(() => a.use24 = v);
+                              await rescheduleAll(a);
+                            },
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 14),
-                    lbl(a.t('language')),
-                    Seg<String>(
-                      items: const {'ar': 'العربية', 'en': 'English'},
-                      value: a.lang,
-                      onChanged: (v) async {
-                        await a.update(() => a.lang = v);
-                        await rescheduleAll(a);
-                      },
+                  ),
+                  sec(a.t('alerts')),
+                  AppCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        row(Icons.music_note_outlined, a.t('soundRow'), value: a.toneName, onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const SoundPage()))),
+                        Divider(height: 28, color: p.line),
+                        setting(
+                          Icons.notifications_active_outlined,
+                          a.t('defBefore'),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [for (final m in [5, 10, 15, 30]) PillChip(label: a.minLabel(m), selected: a.defBefore == m, onTap: () => a.update(() => a.defBefore = m))],
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 14),
-                    lbl(a.t('timeFormat')),
-                    Seg<bool>(
-                      items: {false: a.t('h12'), true: a.t('h24')},
-                      value: a.use24,
-                      onChanged: (v) async {
-                        await a.update(() => a.use24 = v);
-                        await rescheduleAll(a);
-                      },
+                  ),
+                  sec(a.t('data')),
+                  AppCard(
+                    child: Column(
+                      children: [
+                        row(Icons.menu_book_outlined, a.t('subjects'), value: '${a.subjects.length}', onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const SubjectsPage()))),
+                        Divider(height: 28, color: p.line),
+                        row(Icons.delete_outline, a.t('clearAll'), color: p.red, iconBg: p.redSoft, chevron: false, onTap: clearAll),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                  sec(a.t('about')),
+                  AppCard(child: row(Icons.info_outline, a.t('app'), value: a.t('version'), chevron: false)),
+                ],
               ),
-              sec(a.t('alerts')),
-              AppCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    row(Icons.music_note_outlined, a.t('soundRow'), value: a.toneName, onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const SoundPage()))),
-                    Divider(height: 24, color: p.line),
-                    lbl(a.t('defBefore')),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [for (final m in [5, 10, 15, 30]) PillChip(label: a.minLabel(m), selected: a.defBefore == m, onTap: () => a.update(() => a.defBefore = m))],
-                    ),
-                  ],
-                ),
-              ),
-              sec(a.t('data')),
-              AppCard(
-                child: Column(
-                  children: [
-                    row(Icons.menu_book_outlined, a.t('subjects'), value: '${a.subjects.length}', onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const SubjectsPage()))),
-                    Divider(height: 24, color: p.line),
-                    row(Icons.delete_outline, a.t('clearAll'), color: p.red, iconBg: p.redSoft, chevron: false, onTap: () async {
-                      final ok = await confirmSheet(context, title: a.t('clearQ'), sub: a.t('clearD'), yes: a.t('yesClear'), no: a.t('cancel'));
-                      if (!ok) return;
-                      await plugin.cancelAll();
-                      await a.update(() {
-                        a.lectures.clear();
-                        a.reminders.clear();
-                      });
-                      if (context.mounted) showToast(context, a.t('cleared'));
-                    }),
-                  ],
-                ),
-              ),
-              sec(a.t('about')),
-              AppCard(child: row(Icons.info_outline, a.t('app'), value: a.t('version'), chevron: false)),
-            ],
+            ),
           ),
         ),
       ],
@@ -400,16 +436,29 @@ class _AlarmPageState extends State<AlarmPage> with SingleTickerProviderStateMix
   }
 
   Future<void> _stop() async {
-    await plugin.cancel(widget.id);
-    if (mounted) Navigator.of(context).pop();
+    final nav = Navigator.of(context);
+    if (nav.canPop()) {
+      nav.pop();
+    } else {
+      SystemNavigator.pop();
+    }
+    await safeCancel(widget.id);
+    try {
+      await plugin.cancel(2147483000);
+    } catch (_) {}
   }
 
   Future<void> _snooze() async {
     final a = AppScope.of(context);
     final nav = Navigator.of(context);
-    await plugin.cancel(widget.id);
-    await _schedule(widget.id, widget.title, widget.sub, DateTime.now().add(const Duration(minutes: 5)), a);
-    nav.pop();
+    if (nav.canPop()) {
+      nav.pop();
+    } else {
+      SystemNavigator.pop();
+    }
+    await safeCancel(widget.id);
+    final id = widget.id == 2147483000 ? 2147482999 : widget.id;
+    await _schedule(id, widget.title, widget.sub, DateTime.now().add(const Duration(minutes: 5)), a);
   }
 
   @override
