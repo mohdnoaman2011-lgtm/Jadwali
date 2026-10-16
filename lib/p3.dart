@@ -323,6 +323,7 @@ class _RemindersPageState extends State<RemindersPage> {
                     PillChip(label: a.t('fAll'), selected: filter == 'all', onTap: () => setState(() => filter = 'all')),
                     PillChip(label: a.t('fAssign'), selected: filter == 'assignment', onTap: () => setState(() => filter = 'assignment')),
                     PillChip(label: a.t('fExam'), selected: filter == 'exam', onTap: () => setState(() => filter = 'exam')),
+                    PillChip(label: a.t('fFinal'), selected: filter == 'final', onTap: () => setState(() => filter = 'final')),
                   ],
                 ),
               ),
@@ -404,7 +405,7 @@ class ReminderTile extends StatelessWidget {
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            '${r.subject.isEmpty ? '' : '${r.subject} · '}${a.t(r.kind == 'exam' ? 'exam' : 'assignment')} · ${a.fmtDateTime(r.when)}',
+                            '${r.subject.isEmpty ? '' : '${r.subject} · '}${a.t(kindKey(r.kind))} · ${a.fmtDateTime(r.when)}',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(fontSize: 13, color: p.muted),
@@ -451,7 +452,7 @@ class DetailPage extends StatelessWidget {
 
     final String title = lec != null ? lec.subject : rem!.title;
     final Color color = a.colorOf(lec != null ? lec.subject : rem!.subject);
-    final String kind = lec != null ? a.t('lecture') : a.t(rem!.kind == 'exam' ? 'exam' : 'assignment');
+    final String kind = lec != null ? a.t('lecture') : a.t(kindKey(rem!.kind));
     final String sub = lec != null
         ? '${a.dayName(lec.weekday)} · ${a.fmtMin(lec.start)} – ${a.fmtMin(lec.end)}'
         : '${a.longDate(rem!.when)} · ${a.fmtDateTime(rem.when)}';
@@ -643,7 +644,7 @@ class _AddPageState extends State<AddPage> {
       before = l.before;
       roomCtl.text = l.room;
     } else if (r != null) {
-      type = r.kind == 'exam' ? 'exam' : 'assignment';
+      type = kindKey(r.kind);
       subject = r.subject;
       titleCtl.text = r.title;
       date = DateTime(r.when.year, r.when.month, r.when.day);
@@ -718,7 +719,10 @@ class _AddPageState extends State<AddPage> {
     );
   }
 
+  bool _saving = false;
+
   Future<void> _save(AppState a) async {
+    if (_saving) return;
     final nav = Navigator.of(context);
     if (isLec) {
       if (subject.isEmpty) {
@@ -729,6 +733,14 @@ class _AddPageState extends State<AddPage> {
         showToast(context, a.t('endAfter'));
         return;
       }
+    } else if (titleCtl.text.trim().isEmpty) {
+      showToast(context, a.t('needTitle'));
+      return;
+    }
+    _saving = true;
+    final msg = a.t('saved');
+    Future<void> Function()? after;
+    if (isLec) {
       final room = roomCtl.text.trim();
       Lecture target;
       final e = widget.editLecture;
@@ -746,13 +758,9 @@ class _AddPageState extends State<AddPage> {
         target = Lecture(id: a.newId(), subject: subject, weekday: weekday, start: start, end: end, room: room, before: before);
         await a.update(() => a.lectures.add(target));
       }
-      await scheduleLecture(a, target);
+      after = () => scheduleLecture(a, target);
     } else {
       final title = titleCtl.text.trim();
-      if (title.isEmpty) {
-        showToast(context, a.t('needTitle'));
-        return;
-      }
       final when = DateTime(date.year, date.month, date.day, timeMin ~/ 60, timeMin % 60);
       Reminder target;
       final e = widget.editReminder;
@@ -769,10 +777,14 @@ class _AddPageState extends State<AddPage> {
         target = Reminder(id: a.newId(), title: title, kind: type, subject: subject, when: when, before: rBefore);
         await a.update(() => a.reminders.add(target));
       }
-      await scheduleReminder(a, target);
+      after = () => scheduleReminder(a, target);
     }
-    if (mounted) showToast(context, a.t('saved'));
+    // الحفظ تم؛ نغلق الشاشة ونعرض التأكيد ثم نجدول التنبيه بدون أن يمنع أي خطأ الإغلاق.
     nav.pop();
+    showToast(navKey.currentContext ?? context, msg);
+    try {
+      await after();
+    } catch (_) {}
   }
 
   Widget _label(Pal p, String s) => Padding(
@@ -813,16 +825,40 @@ class _AddPageState extends State<AddPage> {
 
     return Scaffold(
       appBar: AppBar(title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700))),
-      body: ListView(
+      body: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 560), child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
         children: [
           if (!isEdit) ...[
-            Seg<String>(
-              items: {'lecture': a.t('lecture'), 'assignment': a.t('assignment'), 'exam': a.t('exam')},
-              value: type,
-              onChanged: (v) => setState(() => type = v),
+            Row(
+              children: [
+                for (final t in const [('lecture', Icons.school_outlined), ('assignment', Icons.assignment_outlined), ('exam', Icons.edit_note_rounded), ('final', Icons.workspace_premium_outlined)]) ...[
+                  Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => setState(() => type = t.$1),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 160),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        decoration: BoxDecoration(
+                          color: type == t.$1 ? p.soft : p.card,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: type == t.$1 ? p.pri : p.line, width: type == t.$1 ? 1.8 : 1),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(t.$2, size: 28, color: type == t.$1 ? p.pri : p.muted),
+                            const SizedBox(height: 6),
+                            Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: FittedBox(fit: BoxFit.scaleDown, child: Text(a.t(t.$1), maxLines: 1, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: type == t.$1 ? p.pri : p.text)))),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (t.$1 != 'final') const SizedBox(width: 8),
+                ],
+              ],
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 22),
           ],
           if (!isLec) ...[
             _label(p, a.t('title')),
@@ -979,7 +1015,7 @@ class _AddPageState extends State<AddPage> {
             ),
           ],
         ],
-      ),
+      ))),
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
