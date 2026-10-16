@@ -644,6 +644,13 @@ final GlobalKey<NavigatorState> navKey = GlobalKey<NavigatorState>();
 final GlobalKey<ScaffoldMessengerState> msgKey = GlobalKey<ScaffoldMessengerState>();
 const MethodChannel _ringtoneChannel = MethodChannel('jadwali/ringtone');
 
+/// إلغاء إشعار بأمان: لا يعلق ولا يرمي خطأ مهما حدث.
+Future<void> safeCancel(int id) async {
+  try {
+    await plugin.cancel(id).timeout(const Duration(seconds: 3));
+  } catch (_) {}
+}
+
 String kindKey(String k) => (k == 'exam' || k == 'final') ? k : 'assignment';
 
 String _payload(int id, String title, String sub) => jsonEncode({'id': id, 'title': title, 'sub': sub});
@@ -757,7 +764,7 @@ Future<void> _schedule(
 }
 
 Future<void> scheduleReminder(AppState a, Reminder r) async {
-  await plugin.cancel(r.id);
+  await safeCancel(r.id);
   if (r.done) return;
   final at = r.when.subtract(Duration(minutes: r.before));
   if (at.isBefore(DateTime.now())) return;
@@ -767,7 +774,7 @@ Future<void> scheduleReminder(AppState a, Reminder r) async {
 }
 
 Future<void> scheduleLecture(AppState a, Lecture l) async {
-  await plugin.cancel(l.id);
+  await safeCancel(l.id);
   if (!l.on) return;
   final now = DateTime.now();
   var start = nextOccurrence(l.weekday, l.start, now);
