@@ -42,10 +42,12 @@ class PillChip extends StatelessWidget {
         child: Container(
           constraints: const BoxConstraints(minHeight: 40),
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          alignment: Alignment.center,
-          child: Text(
-            label,
-            style: TextStyle(fontSize: 13.5, fontWeight: selected ? FontWeight.w700 : FontWeight.w500, color: selected ? p.onPri : p.text),
+          child: Center(
+            widthFactor: 1,
+            child: Text(
+              label,
+              style: TextStyle(fontSize: 13.5, fontWeight: selected ? FontWeight.w700 : FontWeight.w500, color: selected ? p.onPri : p.text),
+            ),
           ),
         ),
       ),
@@ -322,18 +324,18 @@ Future<void> deleteLecture(BuildContext context, Lecture l) async {
   final a = AppScope.of(context);
   final ok = await confirmSheet(context, title: a.t('delLecQ'), sub: '${l.subject} · ${a.t('delD')}', yes: a.t('yesDelete'), no: a.t('keep'));
   if (!ok) return;
-  await plugin.cancel(l.id);
   await a.update(() => a.lectures.removeWhere((x) => x.id == l.id));
-  if (context.mounted) showToast(context, a.t('deleted'));
+  showToast(navKey.currentContext ?? context, a.t('deleted'));
+  await safeCancel(l.id);
 }
 
 Future<void> deleteReminder(BuildContext context, Reminder r) async {
   final a = AppScope.of(context);
   final ok = await confirmSheet(context, title: a.t('delRemQ'), sub: '${r.title} · ${a.t('delD')}', yes: a.t('yesDelete'), no: a.t('keep'));
   if (!ok) return;
-  await plugin.cancel(r.id);
   await a.update(() => a.reminders.removeWhere((x) => x.id == r.id));
-  if (context.mounted) showToast(context, a.t('deleted'));
+  showToast(navKey.currentContext ?? context, a.t('deleted'));
+  await safeCancel(r.id);
 }
 
 /// قائمة خيارات (فتح / تعديل / حذف) لمحاضرة أو تذكير.
