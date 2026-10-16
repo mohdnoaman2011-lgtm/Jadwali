@@ -242,16 +242,25 @@ class EmptyState extends StatelessWidget {
 }
 
 void showToast(BuildContext context, String msg) {
+  final m = msgKey.currentState;
+  if (m == null) return;
   final p = Pal.of(context);
-  ScaffoldMessenger.of(context)
+  m
     ..hideCurrentSnackBar()
     ..showSnackBar(SnackBar(
-      content: Text(msg, textAlign: TextAlign.center, style: TextStyle(color: p.bg, fontWeight: FontWeight.w600)),
+      content: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.check_circle, size: 20, color: p.bg),
+          const SizedBox(width: 8),
+          Flexible(child: Text(msg, textAlign: TextAlign.center, style: TextStyle(color: p.bg, fontWeight: FontWeight.w600))),
+        ],
+      ),
       backgroundColor: p.text,
       behavior: SnackBarBehavior.floating,
-      margin: const EdgeInsets.fromLTRB(24, 0, 24, 100),
+      margin: const EdgeInsets.fromLTRB(24, 0, 24, 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      duration: const Duration(milliseconds: 2000),
+      duration: const Duration(milliseconds: 2200),
     ));
 }
 
@@ -436,9 +445,10 @@ class SplashPage extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Image.asset(
-                      'assets/logo.png',
-                      width: 250,
+                    Image.memory(
+                      base64Decode(kLogoB64),
+                      width: 220,
+                      gaplessPlayback: true,
                       semanticLabel: a.t('app'),
                       errorBuilder: (context, error, stack) => Text(
                         a.t('app'),
@@ -720,11 +730,10 @@ class _ShellPageState extends State<ShellPage> {
 
   Widget _item(AppState a, Pal p, int i, IconData icon, IconData iconOn, String label) {
     final on = index == i;
-    return GestureDetector(
+    return Expanded(child: GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => setState(() => index = i),
       child: Container(
-        width: 62,
         height: 56,
         decoration: BoxDecoration(color: on ? p.soft : Colors.transparent, borderRadius: BorderRadius.circular(20)),
         child: Column(
@@ -736,7 +745,7 @@ class _ShellPageState extends State<ShellPage> {
           ],
         ),
       ),
-    );
+    ));
   }
 
   @override
@@ -767,7 +776,7 @@ class _ShellPageState extends State<ShellPage> {
             children: [
               _item(a, p, 0, Icons.calendar_today_outlined, Icons.calendar_today, a.t('home')),
               _item(a, p, 1, Icons.grid_view_outlined, Icons.grid_view_rounded, a.t('schedule')),
-              Tooltip(
+              Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: Tooltip(
                 message: a.t('newT'),
                 child: GestureDetector(
                   onTap: _add,
@@ -782,7 +791,7 @@ class _ShellPageState extends State<ShellPage> {
                     child: const Icon(Icons.add, size: 28, color: Colors.white),
                   ),
                 ),
-              ),
+              )),
               _item(a, p, 2, Icons.check_circle_outline, Icons.check_circle, a.t('reminders')),
               _item(a, p, 3, Icons.tune, Icons.tune, a.t('settings')),
             ],
