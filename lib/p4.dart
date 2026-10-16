@@ -228,6 +228,42 @@ class SettingsPage extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
                 children: [
+                  Container(
+                    margin: const EdgeInsets.only(top: 4),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(28),
+                      gradient: const LinearGradient(begin: Alignment.topRight, end: Alignment.bottomLeft, colors: [Color(0xFF1E5BD8), Color(0xFF0F2A6B)]),
+                      boxShadow: const [BoxShadow(color: Color(0x331E5BD8), blurRadius: 20, offset: Offset(0, 8))],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 64,
+                          height: 64,
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+                          child: Image.memory(base64Decode(kLogoB64), fit: BoxFit.contain, gaplessPlayback: true),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(a.t('app'), style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w700, color: Colors.white)),
+                              const SizedBox(height: 2),
+                              Text('${a.lectures.length} ${a.t('lecture')} · ${a.reminders.length} ${a.t('reminders')}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: Color(0xFFD5E0F7))),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(12)),
+                          child: Text(a.t('version'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white)),
+                        ),
+                      ],
+                    ),
+                  ),
                   sec(a.t('appearance')),
                   AppCard(
                     child: Column(
