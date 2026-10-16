@@ -91,6 +91,8 @@ const Map<String, Map<String, String>> _tr = {
     'lecture': 'محاضرة',
     'assignment': 'واجب',
     'exam': 'اختبار',
+    'final': 'امتحان',
+    'fFinal': 'الامتحانات',
     'title': 'العنوان',
     'titleHint': 'مثال: تسليم التقرير',
     'subject': 'المادة',
@@ -243,7 +245,9 @@ const Map<String, Map<String, String>> _tr = {
     'editRemT': 'Edit reminder',
     'lecture': 'Lecture',
     'assignment': 'Assignment',
-    'exam': 'Exam',
+    'exam': 'Quiz',
+    'final': 'Final exam',
+    'fFinal': 'Finals',
     'title': 'Title',
     'titleHint': 'e.g. Report due',
     'subject': 'Subject',
@@ -636,7 +640,10 @@ DateTime weekDate(int weekday) {
 
 final FlutterLocalNotificationsPlugin plugin = FlutterLocalNotificationsPlugin();
 final GlobalKey<NavigatorState> navKey = GlobalKey<NavigatorState>();
+final GlobalKey<ScaffoldMessengerState> msgKey = GlobalKey<ScaffoldMessengerState>();
 const MethodChannel _ringtoneChannel = MethodChannel('jadwali/ringtone');
+
+String kindKey(String k) => (k == 'exam' || k == 'final') ? k : 'assignment';
 
 String _payload(int id, String title, String sub) => jsonEncode({'id': id, 'title': title, 'sub': sub});
 
@@ -742,7 +749,9 @@ Future<void> _schedule(
   try {
     await go(AndroidScheduleMode.exactAllowWhileIdle);
   } catch (_) {
-    await go(AndroidScheduleMode.inexactAllowWhileIdle);
+    try {
+      await go(AndroidScheduleMode.inexactAllowWhileIdle);
+    } catch (_) {}
   }
 }
 
@@ -751,7 +760,7 @@ Future<void> scheduleReminder(AppState a, Reminder r) async {
   if (r.done) return;
   final at = r.when.subtract(Duration(minutes: r.before));
   if (at.isBefore(DateTime.now())) return;
-  final kindLbl = a.t(r.kind == 'exam' ? 'exam' : 'assignment');
+  final kindLbl = a.t(kindKey(r.kind));
   final body = r.subject.isEmpty ? kindLbl : '${r.subject} · $kindLbl';
   await _schedule(r.id, r.title, body, at, a);
 }
@@ -911,6 +920,14 @@ class JadwaliApp extends StatelessWidget {
         final a = AppScope.of(context);
         return MaterialApp(
           navigatorKey: navKey,
+          scaffoldMessengerKey: msgKey,
+          builder: (context, child) {
+            final mq = MediaQuery.of(context);
+            return MediaQuery(
+              data: mq.copyWith(textScaler: mq.textScaler.clamp(minScaleFactor: 0.85, maxScaleFactor: 1.15)),
+              child: child!,
+            );
+          },
           debugShowCheckedModeBanner: false,
           title: a.t('app'),
           locale: Locale(a.lang),
