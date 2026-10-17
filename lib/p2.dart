@@ -41,12 +41,16 @@ class PillChip extends StatelessWidget {
         onTap: onTap,
         child: Container(
           constraints: const BoxConstraints(minHeight: 40),
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
           child: Center(
             widthFactor: 1,
-            child: Text(
-              label,
-              style: TextStyle(fontSize: 13.5, fontWeight: selected ? FontWeight.w700 : FontWeight.w500, color: selected ? p.onPri : p.text),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                maxLines: 1,
+                style: TextStyle(fontSize: 13.5, fontWeight: selected ? FontWeight.w700 : FontWeight.w500, color: selected ? p.onPri : p.text),
+              ),
             ),
           ),
         ),
@@ -85,6 +89,141 @@ class Seg<T> extends StatelessWidget {
                   ),
                   child: Text(e.value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: e.key == value ? p.text : p.muted)),
                 ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// مفتاح تبديل مدمج بين خيارين: [الأول] (مفتاح) [الثاني].
+class SwitchRow extends StatelessWidget {
+  const SwitchRow({super.key, required this.startLabel, required this.endLabel, required this.atEnd, required this.onChanged});
+  final String startLabel;
+  final String endLabel;
+  final bool atEnd;
+  final ValueChanged<bool> onChanged;
+
+  Widget _lbl(Pal p, String s, bool on, bool value) => GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => onChanged(value),
+        child: Container(
+          width: 60,
+          constraints: const BoxConstraints(minHeight: 40),
+          alignment: Alignment.center,
+          child: Text(s, maxLines: 1, textAlign: TextAlign.center, style: TextStyle(fontSize: 13.5, fontWeight: on ? FontWeight.w700 : FontWeight.w500, color: on ? p.text : p.muted)),
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final p = Pal.of(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _lbl(p, startLabel, !atEnd, false),
+        const SizedBox(width: 2),
+        MiniSwitch(on: atEnd, twoWay: true, onChanged: onChanged),
+        const SizedBox(width: 2),
+        _lbl(p, endLabel, atEnd, true),
+      ],
+    );
+  }
+}
+
+/// مفتاح تشغيل/إيقاف صغير (كبسولة ودائرة بيضاء).
+/// [twoWay]: مفتاح بين خيارين فيبقى المسار ملوّنًا في الحالتين.
+class MiniSwitch extends StatelessWidget {
+  const MiniSwitch({super.key, required this.on, required this.onChanged, this.twoWay = false});
+  final bool on;
+  final bool twoWay;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = Pal.of(context);
+    return GestureDetector(
+      onTap: () => onChanged(!on),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        width: 52,
+        height: 30,
+        padding: const EdgeInsets.all(3),
+        alignment: on ? AlignmentDirectional.centerEnd : AlignmentDirectional.centerStart,
+        decoration: BoxDecoration(
+          color: (on || twoWay) ? p.pri : p.line,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Container(
+          width: 24,
+          height: 24,
+          decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: [BoxShadow(color: Color(0x47000000), blurRadius: 3, offset: Offset(0, 1))]),
+        ),
+      ),
+    );
+  }
+}
+
+/// مفتاح الوضع الداكن: كبسولة فاتحة بإطار رمادي ودائرة رمادية (الدائرة يمينًا = مفعّل).
+class DarkSwitch extends StatelessWidget {
+  const DarkSwitch({super.key, required this.on, required this.onChanged});
+  final bool on;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final edge = dark ? const Color(0xFF9DA9CB) : const Color(0xFF6B7977);
+    final fill = dark ? const Color(0xFF222D50) : const Color(0xFFDDE3E1);
+    return Semantics(
+      toggled: on,
+      child: GestureDetector(
+        onTap: () => onChanged(!on),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          width: 62,
+          height: 36,
+          padding: const EdgeInsets.all(5),
+          alignment: on ? Alignment.centerRight : Alignment.centerLeft,
+          decoration: BoxDecoration(color: fill, borderRadius: BorderRadius.circular(20), border: Border.all(color: edge, width: 3)),
+          child: Container(width: 18, height: 18, decoration: BoxDecoration(color: edge, shape: BoxShape.circle)),
+        ),
+      ),
+    );
+  }
+}
+
+/// أزرار اختيار مدمجة (قطعتان): المحدد بخلفية داكنة ونص أبيض.
+class MiniSeg extends StatelessWidget {
+  const MiniSeg({super.key, required this.labels, required this.index, required this.onChanged});
+  final List<String> labels;
+  final int index;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = Pal.of(context);
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(color: p.soft, borderRadius: BorderRadius.circular(18)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var i = 0; i < labels.length; i++)
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => onChanged(i),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                constraints: const BoxConstraints(minWidth: 72),
+                height: 38,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(color: i == index ? p.pri : Colors.transparent, borderRadius: BorderRadius.circular(14)),
+                child: Text(labels[i], maxLines: 1, style: TextStyle(fontSize: 14, fontWeight: i == index ? FontWeight.w700 : FontWeight.w500, color: i == index ? p.onPri : p.muted)),
               ),
             ),
         ],

@@ -161,24 +161,37 @@ class SettingsPage extends StatelessWidget {
     final p = Pal.of(context);
 
     Widget sec(String s) => Padding(
-          padding: const EdgeInsetsDirectional.fromSTEB(6, 20, 6, 8),
+          padding: const EdgeInsetsDirectional.fromSTEB(6, 14, 6, 6),
           child: Text(s, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: p.muted, letterSpacing: 0.3)),
         );
 
     // عنصر إعداد: أيقونة + عنوان، وتحته عنصر التحكم بعرض كامل
     Widget setting(IconData icon, String title, Widget control) => Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
+          padding: EdgeInsets.zero,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Row(
                 children: [
-                  IconBox(icon: icon, size: 38),
+                  IconBox(icon: icon, size: 36),
                   const SizedBox(width: 12),
                   Expanded(child: Text(title, style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700))),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
+              control,
+            ],
+          ),
+        );
+
+    // صف إعداد مضغوط: أيقونة + عنوان في البداية، وعنصر التحكم في النهاية
+    Widget opt(IconData icon, String title, Widget control) => ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 56),
+          child: Row(
+            children: [
+              IconBox(icon: icon, size: 36),
+              const SizedBox(width: 12),
+              Expanded(child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600))),
               control,
             ],
           ),
@@ -189,10 +202,10 @@ class SettingsPage extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
+          padding: EdgeInsets.zero,
           child: Row(
             children: [
-              IconBox(icon: icon, bg: iconBg, fg: color, size: 38),
+              IconBox(icon: icon, bg: iconBg, fg: color, size: 36),
               const SizedBox(width: 12),
               Expanded(child: Text(title, style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w600, color: color ?? p.text))),
               if (value != null)
@@ -228,78 +241,29 @@ class SettingsPage extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
                 children: [
-                  Container(
-                    margin: const EdgeInsets.only(top: 4),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(28),
-                      gradient: const LinearGradient(begin: Alignment.topRight, end: Alignment.bottomLeft, colors: [Color(0xFF1E5BD8), Color(0xFF0F2A6B)]),
-                      boxShadow: const [BoxShadow(color: Color(0x331E5BD8), blurRadius: 20, offset: Offset(0, 8))],
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 64,
-                          height: 64,
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
-                          child: Image.memory(base64Decode(kLogoB64), fit: BoxFit.contain, gaplessPlayback: true),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(a.t('app'), style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w700, color: Colors.white)),
-                              const SizedBox(height: 2),
-                              Text('${a.lectures.length} ${a.t('lecture')} · ${a.reminders.length} ${a.t('reminders')}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: Color(0xFFD5E0F7))),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(12)),
-                          child: Text(a.t('version'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white)),
-                        ),
-                      ],
-                    ),
-                  ),
                   sec(a.t('appearance')),
                   AppCard(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        setting(
-                          Icons.palette_outlined,
-                          a.t('appearance'),
-                          Seg<ThemeMode>(
-                            items: {ThemeMode.light: a.t('light'), ThemeMode.dark: a.t('dark'), ThemeMode.system: a.t('system')},
-                            value: a.themeMode,
-                            onChanged: (v) => a.update(() => a.themeMode = v),
+                        opt(
+                          Icons.dark_mode_outlined,
+                          a.t('darkMode'),
+                          MiniSwitch(
+                            on: a.themeMode == ThemeMode.dark,
+                            twoWay: true,
+                            onChanged: (v) => a.update(() => a.themeMode = v ? ThemeMode.dark : ThemeMode.light),
                           ),
                         ),
-                        Divider(height: 28, color: p.line),
-                        setting(
+                        Divider(height: 1, color: p.line),
+                        opt(
                           Icons.language,
                           a.t('language'),
-                          Seg<String>(
-                            items: const {'ar': 'العربية', 'en': 'English'},
-                            value: a.lang,
-                            onChanged: (v) async {
-                              await a.update(() => a.lang = v);
-                              await rescheduleAll(a);
-                            },
-                          ),
-                        ),
-                        Divider(height: 28, color: p.line),
-                        setting(
-                          Icons.schedule,
-                          a.t('timeFormat'),
-                          Seg<bool>(
-                            items: {false: a.t('h12'), true: a.t('h24')},
-                            value: a.use24,
-                            onChanged: (v) async {
-                              await a.update(() => a.use24 = v);
+                          MiniSeg(
+                            labels: const ['العربية', 'English'],
+                            index: a.lang == 'en' ? 1 : 0,
+                            onChanged: (i) async {
+                              await a.update(() => a.lang = i == 1 ? 'en' : 'ar');
                               await rescheduleAll(a);
                             },
                           ),
@@ -313,14 +277,17 @@ class SettingsPage extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         row(Icons.music_note_outlined, a.t('soundRow'), value: a.toneName, onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const SoundPage()))),
-                        Divider(height: 28, color: p.line),
+                        Divider(height: 20, color: p.line),
                         setting(
                           Icons.notifications_active_outlined,
                           a.t('defBefore'),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [for (final m in [5, 10, 15, 30]) PillChip(label: a.minLabel(m), selected: a.defBefore == m, onTap: () => a.update(() => a.defBefore = m))],
+                          Row(
+                            children: [
+                              for (final m in [5, 10, 15, 30]) ...[
+                                Expanded(child: PillChip(label: a.minLabel(m), selected: a.defBefore == m, onTap: () => a.update(() => a.defBefore = m))),
+                                if (m != 30) const SizedBox(width: 6),
+                              ],
+                            ],
                           ),
                         ),
                       ],
@@ -331,7 +298,7 @@ class SettingsPage extends StatelessWidget {
                     child: Column(
                       children: [
                         row(Icons.menu_book_outlined, a.t('subjects'), value: '${a.subjects.length}', onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const SubjectsPage()))),
-                        Divider(height: 28, color: p.line),
+                        Divider(height: 20, color: p.line),
                         row(Icons.delete_outline, a.t('clearAll'), color: p.red, iconBg: p.redSoft, chevron: false, onTap: clearAll),
                       ],
                     ),
