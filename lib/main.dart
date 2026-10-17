@@ -521,6 +521,7 @@ class AppState extends ChangeNotifier {
     for (final r in reminders) {
       if (r.id >= _nextId) _nextId = r.id + 1;
     }
+    loadInfo = '${raw?.length ?? 0}|${lectures.length}|${reminders.length}';
     // مواد المحاضرات القديمة التي لا توجد في القائمة
     for (final l in lectures) {
       if (l.subject.isNotEmpty && !subjects.any((s) => s.name == l.subject)) {
@@ -529,38 +530,50 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  String lastSaveError = '';
+  String loadInfo = '';
+
   Future<void> save() async {
+    lastSaveError = '';
     try {
       await _save();
-    } catch (_) {
+    } catch (e) {
       try {
         _p = await SharedPreferences.getInstance();
         await _save();
-      } catch (_) {}
+        lastSaveError = '';
+      } catch (e2) {
+        lastSaveError = '$e2';
+      }
+    }
+    if (lastSaveError.isNotEmpty) {
+      final c = navKey.currentContext;
+      if (c != null) showToast(c, (ar ? 'تعذّر حفظ البيانات: ' : 'Could not save: ') + lastSaveError);
     }
   }
 
   Future<void> _save() async {
-    await _p.setBool('onboarded', onboarded);
-    await _p.setString('lang', lang);
-    await _p.setString('theme', themeMode.name);
-    await _p.setBool('use24', use24);
-    await _p.setInt('defBefore', defBefore);
-    await _p.setString('soundMode', soundMode);
-    await _p.setString('toneUri', toneUri);
-    await _p.setString('toneTitle', toneTitle);
-    await _p.setBool('continuous', continuous);
-    await _p.setInt('repeatMin', repeatMin);
-    await _p.setBool('vibrate', vibrate);
-    await _p.setString(
-      'data',
-      jsonEncode({
-        'lectures': lectures.map((e) => e.toJson()).toList(),
-        'reminders': reminders.map((e) => e.toJson()).toList(),
-        'subjects': subjects.map((e) => e.toJson()).toList(),
-        'nextId': _nextId,
-      }),
-    );
+    // البيانات أولًا لأنها الأهم
+    final json = jsonEncode({
+      'lectures': lectures.map((e) => e.toJson()).toList(),
+      'reminders': reminders.map((e) => e.toJson()).toList(),
+      'subjects': subjects.map((e) => e.toJson()).toList(),
+      'nextId': _nextId,
+    });
+    final ok = await _p.setString('data', json);
+    if (!ok) throw 'setString=false';
+    try {
+      await _p.setBool('onboarded', onboarded);
+      await _p.setString('lang', lang);
+      await _p.setString('theme', themeMode.name);
+      await _p.setInt('defBefore', defBefore);
+      await _p.setString('soundMode', soundMode);
+      await _p.setString('toneUri', toneUri);
+      await _p.setString('toneTitle', toneTitle);
+      await _p.setBool('continuous', continuous);
+      await _p.setInt('repeatMin', repeatMin);
+      await _p.setBool('vibrate', vibrate);
+    } catch (_) {}
   }
 
   /// يغيّر الحالة ثم يحفظها ويحدّث الواجهة.
@@ -879,6 +892,10 @@ Future<void> main() async {
     // لا نحذف أي بيانات محفوظة عند الفشل
   }
   runApp(JadwaliApp(app: app));
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    final c = navKey.currentContext;
+    if (c != null && app.onboarded) showToast(c, 'تشخيص: ${app.loadInfo}');
+  });
   // الإشعارات تُهيّأ بعد ظهور الواجهة حتى لا تحجب البدء
   try {
     await initNotifications();
