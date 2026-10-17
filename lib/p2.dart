@@ -770,22 +770,31 @@ class _PermissionPageState extends State<PermissionPage> {
   bool notif = false;
   bool exact = false;
 
+  bool _busy = false;
+
   Future<void> _finish() async {
+    if (_busy) return;
+    _busy = true;
     final a = AppScope.of(context);
     final nav = Navigator.of(context);
-    await a.update(() => a.onboarded = true);
+    // نحفظ الحالة دون انتظار طويل، ثم ننتقل دائمًا للشاشة الرئيسية
+    try {
+      await a.update(() => a.onboarded = true).timeout(const Duration(seconds: 3));
+    } catch (_) {
+      a.onboarded = true;
+    }
     nav.pushAndRemoveUntil(MaterialPageRoute<void>(builder: (_) => const ShellPage()), (r) => false);
   }
 
   Future<void> _allowAll() async {
-    final n = await askNotificationsPermission();
-    final e = await askExactAlarmsPermission();
-    if (mounted) {
-      setState(() {
-        notif = n;
-        exact = e;
-      });
-    }
+    try {
+      final n = await askNotificationsPermission().timeout(const Duration(seconds: 20), onTimeout: () => false);
+      if (mounted) setState(() => notif = n);
+    } catch (_) {}
+    try {
+      final e = await askExactAlarmsPermission().timeout(const Duration(seconds: 3), onTimeout: () => false);
+      if (mounted) setState(() => exact = e);
+    } catch (_) {}
     await _finish();
   }
 
