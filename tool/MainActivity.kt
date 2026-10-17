@@ -7,12 +7,25 @@ import android.net.Uri
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import android.content.Context
 
 class MainActivity : FlutterActivity() {
     private var pending: MethodChannel.Result? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "jadwali/store")
+            .setMethodCallHandler { call, result ->
+                val sp = getSharedPreferences("jadwali_store", Context.MODE_PRIVATE)
+                when (call.method) {
+                    "get" -> result.success(sp.getString("all", ""))
+                    "set" -> {
+                        val v = call.arguments as? String ?: ""
+                        result.success(sp.edit().putString("all", v).commit())
+                    }
+                    else -> result.notImplemented()
+                }
+            }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "jadwali/ringtone")
             .setMethodCallHandler { call, result ->
                 if (call.method == "pick") {
