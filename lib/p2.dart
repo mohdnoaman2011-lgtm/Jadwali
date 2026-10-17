@@ -774,16 +774,18 @@ class _PermissionPageState extends State<PermissionPage> {
     final a = AppScope.of(context);
     final nav = Navigator.of(context);
     await a.update(() => a.onboarded = true);
-    nav.popUntil((r) => r.isFirst);
+    nav.pushAndRemoveUntil(MaterialPageRoute<void>(builder: (_) => const ShellPage()), (r) => false);
   }
 
   Future<void> _allowAll() async {
     final n = await askNotificationsPermission();
     final e = await askExactAlarmsPermission();
-    if (mounted) setState(() {
-      notif = n;
-      exact = e;
-    });
+    if (mounted) {
+      setState(() {
+        notif = n;
+        exact = e;
+      });
+    }
     await _finish();
   }
 
