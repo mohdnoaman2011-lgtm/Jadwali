@@ -43,6 +43,7 @@ const Map<String, Map<String, String>> _tr = {
     'allowed': 'مسموح',
     'allowAll': 'السماح للكل',
     'later': 'لاحقًا',
+    'darkMode': 'الوضع الداكن',
     'home': 'الرئيسية',
     'schedule': 'الجدول الأسبوعي',
     'reminders': 'التذكيرات',
@@ -203,6 +204,7 @@ const Map<String, Map<String, String>> _tr = {
     'allowed': 'Allowed',
     'allowAll': 'Allow all',
     'later': 'Later',
+    'darkMode': 'Dark mode',
     'home': 'Home',
     'schedule': 'Weekly schedule',
     'reminders': 'Reminders',
@@ -482,8 +484,8 @@ class AppState extends ChangeNotifier {
     onboarded = _p.getBool('onboarded') ?? false;
     lang = _p.getString('lang') ?? 'ar';
     final tm = _p.getString('theme');
-    themeMode = ThemeMode.values.firstWhere((m) => m.name == tm, orElse: () => ThemeMode.light);
-    use24 = _p.getBool('use24') ?? false;
+    themeMode = tm == 'dark' ? ThemeMode.dark : ThemeMode.light;
+    use24 = false; // نظام 12 ساعة هو الأساسي
     defBefore = _p.getInt('defBefore') ?? 10;
     soundMode = _p.getString('soundMode') ?? 'default';
     toneUri = _p.getString('toneUri') ?? '';
@@ -676,22 +678,27 @@ void openAlarm(String? payload) {
 }
 
 Future<void> initNotifications() async {
-  tzdata.initializeTimeZones();
   try {
-    final name = await FlutterTimezone.getLocalTimezone();
+    tzdata.initializeTimeZones();
+  } catch (_) {}
+  try {
+    final name = await FlutterTimezone.getLocalTimezone().timeout(const Duration(seconds: 3));
     tz.setLocalLocation(tz.getLocation(name));
   } catch (_) {}
 
-  await plugin.initialize(
-    const InitializationSettings(android: AndroidInitializationSettings('@mipmap/ic_launcher')),
-    onDidReceiveNotificationResponse: (r) => openAlarm(r.payload),
-  );
-
-  final launch = await plugin.getNotificationAppLaunchDetails();
-  if (launch?.didNotificationLaunchApp ?? false) {
-    final payload = launch!.notificationResponse?.payload;
-    WidgetsBinding.instance.addPostFrameCallback((_) => openAlarm(payload));
-  }
+  try {
+    await plugin
+        .initialize(
+          const InitializationSettings(android: AndroidInitializationSettings('@mipmap/ic_launcher')),
+          onDidReceiveNotificationResponse: (r) => openAlarm(r.payload),
+        )
+        .timeout(const Duration(seconds: 5));
+    final launch = await plugin.getNotificationAppLaunchDetails().timeout(const Duration(seconds: 3));
+    if (launch?.didNotificationLaunchApp ?? false) {
+      final payload = launch!.notificationResponse?.payload;
+      WidgetsBinding.instance.addPostFrameCallback((_) => openAlarm(payload));
+    }
+  } catch (_) {}
 }
 
 AndroidFlutterLocalNotificationsPlugin? get _android =>
@@ -835,10 +842,23 @@ Future<void> pickRingtone(AppState a) async {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  FlutterError.onError = (d) => FlutterError.presentError(d);
   final app = AppState();
-  await app.load();
-  await initNotifications();
+  try {
+    await app.load().timeout(const Duration(seconds: 5));
+  } catch (_) {
+    // بيانات تالفة: نبدأ بحالة نظيفة بدل التعطل
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.remove('data');
+      await app.load();
+    } catch (_) {}
+  }
   runApp(JadwaliApp(app: app));
+  // الإشعارات تُهيّأ بعد ظهور الواجهة حتى لا تحجب البدء
+  try {
+    await initNotifications();
+  } catch (_) {}
 }
 
 /// ألوان التصميم (مطابقة للمخطط) حسب السمة الحالية.
