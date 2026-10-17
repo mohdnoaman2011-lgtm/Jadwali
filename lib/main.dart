@@ -7,7 +7,6 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -459,7 +458,7 @@ class Reminder {
 // ───────────────────────── حالة التطبيق / App state ─────────────────────────
 
 class AppState extends ChangeNotifier {
-  late SharedPreferences _p;
+  static const MethodChannel _store = MethodChannel('jadwali/store');
 
   bool onboarded = false;
   String lang = 'ar';
@@ -480,48 +479,45 @@ class AppState extends ChangeNotifier {
   int _nextId = 1;
 
   Future<void> load() async {
-    _p = await SharedPreferences.getInstance();
-    onboarded = _p.getBool('onboarded') ?? false;
-    lang = _p.getString('lang') ?? 'ar';
-    final tm = _p.getString('theme');
-    themeMode = tm == 'dark' ? ThemeMode.dark : ThemeMode.light;
+    Map<String, dynamic> m = {};
+    try {
+      final raw = await _store.invokeMethod<String>('get');
+      if (raw != null && raw.isNotEmpty) m = jsonDecode(raw) as Map<String, dynamic>;
+    } catch (_) {}
+    onboarded = (m['onboarded'] ?? false) as bool;
+    lang = (m['lang'] ?? 'ar') as String;
+    themeMode = m['theme'] == 'dark' ? ThemeMode.dark : ThemeMode.light;
     use24 = false; // نظام 12 ساعة هو الأساسي
-    defBefore = _p.getInt('defBefore') ?? 10;
-    soundMode = _p.getString('soundMode') ?? 'default';
-    toneUri = _p.getString('toneUri') ?? '';
-    toneTitle = _p.getString('toneTitle') ?? '';
-    continuous = _p.getBool('continuous') ?? true;
-    repeatMin = _p.getInt('repeatMin') ?? 0;
-    vibrate = _p.getBool('vibrate') ?? true;
-    final raw = _p.getString('data');
-    if (raw != null && raw.isNotEmpty) {
+    defBefore = ((m['defBefore'] ?? 10) as num).toInt();
+    soundMode = (m['soundMode'] ?? 'default') as String;
+    toneUri = (m['toneUri'] ?? '') as String;
+    toneTitle = (m['toneTitle'] ?? '') as String;
+    continuous = (m['continuous'] ?? true) as bool;
+    repeatMin = ((m['repeatMin'] ?? 0) as num).toInt();
+    vibrate = (m['vibrate'] ?? true) as bool;
+    for (final e in (m['lectures'] as List? ?? const [])) {
       try {
-        final j = jsonDecode(raw) as Map<String, dynamic>;
-        for (final e in (j['lectures'] as List? ?? const [])) {
-          try {
-            lectures.add(Lecture.fromJson(e as Map<String, dynamic>));
-          } catch (_) {}
-        }
-        for (final e in (j['reminders'] as List? ?? const [])) {
-          try {
-            reminders.add(Reminder.fromJson(e as Map<String, dynamic>));
-          } catch (_) {}
-        }
-        for (final e in (j['subjects'] as List? ?? const [])) {
-          try {
-            subjects.add(Subject.fromJson(e as Map<String, dynamic>));
-          } catch (_) {}
-        }
-        _nextId = ((j['nextId'] ?? 1) as num).toInt();
+        lectures.add(Lecture.fromJson(e as Map<String, dynamic>));
       } catch (_) {}
     }
+    for (final e in (m['reminders'] as List? ?? const [])) {
+      try {
+        reminders.add(Reminder.fromJson(e as Map<String, dynamic>));
+      } catch (_) {}
+    }
+    for (final e in (m['subjects'] as List? ?? const [])) {
+      try {
+        subjects.add(Subject.fromJson(e as Map<String, dynamic>));
+      } catch (_) {}
+    }
+    _nextId = ((m['nextId'] ?? 1) as num).toInt();
     for (final l in lectures) {
       if (l.id >= _nextId) _nextId = l.id + 1;
     }
     for (final r in reminders) {
       if (r.id >= _nextId) _nextId = r.id + 1;
     }
-    loadInfo = '${raw?.length ?? 0}|${lectures.length}|${reminders.length}';
+    loadInfo = '${lectures.length}|${reminders.length}';
     // مواد المحاضرات القديمة التي لا توجد في القائمة
     for (final l in lectures) {
       if (l.subject.isNotEmpty && !subjects.any((s) => s.name == l.subject)) {
@@ -536,44 +532,31 @@ class AppState extends ChangeNotifier {
   Future<void> save() async {
     lastSaveError = '';
     try {
-      await _save();
+      final json = jsonEncode({
+        'onboarded': onboarded,
+        'lang': lang,
+        'theme': themeMode.name,
+        'defBefore': defBefore,
+        'soundMode': soundMode,
+        'toneUri': toneUri,
+        'toneTitle': toneTitle,
+        'continuous': continuous,
+        'repeatMin': repeatMin,
+        'vibrate': vibrate,
+        'lectures': lectures.map((e) => e.toJson()).toList(),
+        'reminders': reminders.map((e) => e.toJson()).toList(),
+        'subjects': subjects.map((e) => e.toJson()).toList(),
+        'nextId': _nextId,
+      });
+      final ok = await _store.invokeMethod<bool>('set', json);
+      if (ok != true) lastSaveError = 'commit=false';
     } catch (e) {
-      try {
-        _p = await SharedPreferences.getInstance();
-        await _save();
-        lastSaveError = '';
-      } catch (e2) {
-        lastSaveError = '$e2';
-      }
+      lastSaveError = '$e';
     }
     if (lastSaveError.isNotEmpty) {
       final c = navKey.currentContext;
       if (c != null) showToast(c, (ar ? 'تعذّر حفظ البيانات: ' : 'Could not save: ') + lastSaveError);
     }
-  }
-
-  Future<void> _save() async {
-    // البيانات أولًا لأنها الأهم
-    final json = jsonEncode({
-      'lectures': lectures.map((e) => e.toJson()).toList(),
-      'reminders': reminders.map((e) => e.toJson()).toList(),
-      'subjects': subjects.map((e) => e.toJson()).toList(),
-      'nextId': _nextId,
-    });
-    final ok = await _p.setString('data', json);
-    if (!ok) throw 'setString=false';
-    try {
-      await _p.setBool('onboarded', onboarded);
-      await _p.setString('lang', lang);
-      await _p.setString('theme', themeMode.name);
-      await _p.setInt('defBefore', defBefore);
-      await _p.setString('soundMode', soundMode);
-      await _p.setString('toneUri', toneUri);
-      await _p.setString('toneTitle', toneTitle);
-      await _p.setBool('continuous', continuous);
-      await _p.setInt('repeatMin', repeatMin);
-      await _p.setBool('vibrate', vibrate);
-    } catch (_) {}
   }
 
   /// يغيّر الحالة ثم يحفظها ويحدّث الواجهة.
@@ -892,10 +875,6 @@ Future<void> main() async {
     // لا نحذف أي بيانات محفوظة عند الفشل
   }
   runApp(JadwaliApp(app: app));
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    final c = navKey.currentContext;
-    if (c != null && app.onboarded) showToast(c, 'تشخيص: ${app.loadInfo}');
-  });
   // الإشعارات تُهيّأ بعد ظهور الواجهة حتى لا تحجب البدء
   try {
     await initNotifications();
