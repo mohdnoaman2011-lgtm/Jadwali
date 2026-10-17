@@ -15,7 +15,6 @@ dependencies:
   flutter_timezone: ^3.0.1
   timezone: ^0.9.4
   google_fonts: ^6.3.3
-  shared_preferences: ^2.3.0
 
 dev_dependencies:
   flutter_launcher_icons: ^0.14.4
