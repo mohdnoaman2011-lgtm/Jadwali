@@ -494,14 +494,32 @@ class AppState extends ChangeNotifier {
     repeatMin = _p.getInt('repeatMin') ?? 0;
     vibrate = _p.getBool('vibrate') ?? true;
     final raw = _p.getString('data');
-    if (raw != null) {
-      final j = jsonDecode(raw) as Map<String, dynamic>;
-      lectures = (j['lectures'] as List).map((e) => Lecture.fromJson(e as Map<String, dynamic>)).toList();
-      reminders = (j['reminders'] as List).map((e) => Reminder.fromJson(e as Map<String, dynamic>)).toList();
-      if (j['subjects'] != null) {
-        subjects = (j['subjects'] as List).map((e) => Subject.fromJson(e as Map<String, dynamic>)).toList();
-      }
-      _nextId = (j['nextId'] ?? 1) as int;
+    if (raw != null && raw.isNotEmpty) {
+      try {
+        final j = jsonDecode(raw) as Map<String, dynamic>;
+        for (final e in (j['lectures'] as List? ?? const [])) {
+          try {
+            lectures.add(Lecture.fromJson(e as Map<String, dynamic>));
+          } catch (_) {}
+        }
+        for (final e in (j['reminders'] as List? ?? const [])) {
+          try {
+            reminders.add(Reminder.fromJson(e as Map<String, dynamic>));
+          } catch (_) {}
+        }
+        for (final e in (j['subjects'] as List? ?? const [])) {
+          try {
+            subjects.add(Subject.fromJson(e as Map<String, dynamic>));
+          } catch (_) {}
+        }
+        _nextId = ((j['nextId'] ?? 1) as num).toInt();
+      } catch (_) {}
+    }
+    for (final l in lectures) {
+      if (l.id >= _nextId) _nextId = l.id + 1;
+    }
+    for (final r in reminders) {
+      if (r.id >= _nextId) _nextId = r.id + 1;
     }
     // مواد المحاضرات القديمة التي لا توجد في القائمة
     for (final l in lectures) {
@@ -512,6 +530,17 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> save() async {
+    try {
+      await _save();
+    } catch (_) {
+      try {
+        _p = await SharedPreferences.getInstance();
+        await _save();
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _save() async {
     await _p.setBool('onboarded', onboarded);
     await _p.setString('lang', lang);
     await _p.setString('theme', themeMode.name);
@@ -845,14 +874,9 @@ Future<void> main() async {
   FlutterError.onError = (d) => FlutterError.presentError(d);
   final app = AppState();
   try {
-    await app.load().timeout(const Duration(seconds: 5));
+    await app.load();
   } catch (_) {
-    // بيانات تالفة: نبدأ بحالة نظيفة بدل التعطل
-    try {
-      final p = await SharedPreferences.getInstance();
-      await p.remove('data');
-      await app.load();
-    } catch (_) {}
+    // لا نحذف أي بيانات محفوظة عند الفشل
   }
   runApp(JadwaliApp(app: app));
   // الإشعارات تُهيّأ بعد ظهور الواجهة حتى لا تحجب البدء
