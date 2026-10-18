@@ -464,6 +464,7 @@ class AppState extends ChangeNotifier {
   String lang = 'ar';
   ThemeMode themeMode = ThemeMode.light;
   bool use24 = false;
+  bool fsiAsked = false;
   int defBefore = 10;
 
   String soundMode = 'default'; // default | custom
@@ -485,6 +486,7 @@ class AppState extends ChangeNotifier {
       if (raw != null && raw.isNotEmpty) m = jsonDecode(raw) as Map<String, dynamic>;
     } catch (_) {}
     onboarded = (m['onboarded'] ?? false) as bool;
+    fsiAsked = (m['fsiAsked'] ?? false) as bool;
     lang = (m['lang'] ?? 'ar') as String;
     themeMode = m['theme'] == 'dark' ? ThemeMode.dark : ThemeMode.light;
     use24 = false; // نظام 12 ساعة هو الأساسي
@@ -534,6 +536,7 @@ class AppState extends ChangeNotifier {
     try {
       final json = jsonEncode({
         'onboarded': onboarded,
+        'fsiAsked': fsiAsked,
         'lang': lang,
         'theme': themeMode.name,
         'defBefore': defBefore,
@@ -737,6 +740,14 @@ Future<bool> askNotificationsPermission() async {
   }
 }
 
+Future<bool> askFullScreenPermission() async {
+  try {
+    return (await AppState._store.invokeMethod<bool>('fsi')) ?? false;
+  } catch (_) {
+    return false;
+  }
+}
+
 Future<bool> askExactAlarmsPermission() async {
   try {
     return (await _android?.requestExactAlarmsPermission()) ?? false;
@@ -875,6 +886,13 @@ Future<void> main() async {
     // لا نحذف أي بيانات محفوظة عند الفشل
   }
   runApp(JadwaliApp(app: app));
+  if (app.onboarded && !app.fsiAsked) {
+    // مرة واحدة: إذن عرض التنبيه على شاشة القفل
+    Future<void>.delayed(const Duration(seconds: 2), () async {
+      await app.update(() => app.fsiAsked = true);
+      await askFullScreenPermission();
+    });
+  }
   // الإشعارات تُهيّأ بعد ظهور الواجهة حتى لا تحجب البدء
   try {
     await initNotifications();
