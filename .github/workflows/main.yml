@@ -27,6 +27,7 @@ jobs:
         run: |
           cp tool/MainActivity.kt android/app/src/main/kotlin/com/example/jadwali/MainActivity.kt
           python3 tool/patch_manifest.py
+          pip install --break-system-packages pillow
           python3 tool/make_icons.py
       - name: Prepare assets
         run: |
