@@ -786,7 +786,11 @@ class _AddPageState extends State<AddPage> {
     showToast(navKey.currentContext ?? context, msg);
     try {
       await after();
-    } catch (_) {}
+    } catch (e) {
+      schedInfo = 'ERR: $e';
+    }
+    final c2 = navKey.currentContext;
+    if (c2 != null && schedInfo.isNotEmpty) showToast(c2, 'جدولة: $schedInfo');
   }
 
   Widget _label(Pal p, String s) => Padding(
