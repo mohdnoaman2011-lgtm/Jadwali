@@ -837,8 +837,15 @@ String schedInfo = '';
 Future<void> scheduleReminder(AppState a, Reminder r) async {
   await safeCancel(r.id);
   if (r.done) return;
-  final at = r.when.subtract(Duration(minutes: r.before));
-  if (at.isBefore(DateTime.now())) return;
+  var at = r.when.subtract(Duration(minutes: r.before));
+  final nowR = DateTime.now();
+  if (at.isBefore(nowR)) {
+    if (r.when.isAfter(nowR)) {
+      at = nowR.add(const Duration(seconds: 3)); // وقت التنبيه المسبق فات والموعد لم يحن
+    } else {
+      return;
+    }
+  }
   final kindLbl = a.t(kindKey(r.kind));
   final body = r.subject.isEmpty ? kindLbl : '${r.subject} · $kindLbl';
   await _schedule(r.id, r.title, body, at, a);
@@ -855,6 +862,13 @@ Future<void> scheduleLecture(AppState a, Lecture l) async {
     at = start.subtract(Duration(minutes: l.before));
   }
   final body = l.room.isEmpty ? a.fmtMin(l.start) : '${a.fmtMin(l.start)} · ${a.t('hall')} ${l.room}';
+  // محاضرة اليوم لم تبدأ بعد لكن وقت التنبيه المسبق فات: نُنبّه بعد ثوانٍ
+  final firstStart = nextOccurrence(l.weekday, l.start, now);
+  final oneOffId = l.id + 1000000;
+  await safeCancel(oneOffId);
+  if (firstStart.isAfter(now) && firstStart.subtract(Duration(minutes: l.before)).isBefore(now) && firstStart.difference(now).inHours < 12) {
+    await _schedule(oneOffId, l.subject, body, now.add(const Duration(seconds: 3)), a);
+  }
   await _schedule(l.id, l.subject, body, at, a, repeat: DateTimeComponents.dayOfWeekAndTime);
 }
 
