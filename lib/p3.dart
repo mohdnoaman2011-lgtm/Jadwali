@@ -14,7 +14,8 @@ class LectureRow extends StatelessWidget {
     final stLabel = [a.t('stDone'), a.t('stNow'), a.t('stUp')][state];
     final stBg = [p.soft, p.grnSoft, p.soft][state];
     final stFg = [p.muted, p.grn, p.pri][state];
-    return Row(
+    return IntrinsicHeight(
+      child: Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SizedBox(
@@ -68,6 +69,7 @@ class LectureRow extends StatelessWidget {
           ),
         ),
       ],
+      ),
     );
   }
 }
