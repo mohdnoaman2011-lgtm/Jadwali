@@ -23,3 +23,9 @@ if "ScheduledNotificationReceiver" not in s:
         '                <action android:name="android.intent.action.QUICKBOOT_POWERON"/>\n'
         '                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>\n'
         '            </intent-filter>\n'
+        '        </receiver>\n'
+    )
+    s = s.replace("</application>", rec + "    </application>", 1)
+open(p, "w", encoding="utf-8").write(s)
+print("manifest patched")
+# END OF FILE
