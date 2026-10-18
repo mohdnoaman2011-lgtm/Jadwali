@@ -787,6 +787,7 @@ class _PermissionPageState extends State<PermissionPage> {
   }
 
   Future<void> _allowAll() async {
+    final a0 = AppScope.of(context);
     try {
       final n = await askNotificationsPermission().timeout(const Duration(seconds: 20), onTimeout: () => false);
       if (mounted) setState(() => notif = n);
@@ -794,6 +795,10 @@ class _PermissionPageState extends State<PermissionPage> {
     try {
       final e = await askExactAlarmsPermission().timeout(const Duration(seconds: 3), onTimeout: () => false);
       if (mounted) setState(() => exact = e);
+    } catch (_) {}
+    try {
+      a0.fsiAsked = true;
+      await askFullScreenPermission().timeout(const Duration(seconds: 3), onTimeout: () => false);
     } catch (_) {}
     await _finish();
   }
