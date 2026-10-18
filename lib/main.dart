@@ -712,12 +712,18 @@ Future<void> initNotifications() async {
   try {
     final name = await FlutterTimezone.getLocalTimezone().timeout(const Duration(seconds: 3));
     tz.setLocalLocation(tz.getLocation(name));
-  } catch (_) {}
+  } catch (_) {
+    try {
+      final off = DateTime.now().timeZoneOffset.inHours;
+      final id = off == 0 ? 'Etc/UTC' : 'Etc/GMT${off > 0 ? '-' : '+'}${off.abs()}';
+      tz.setLocalLocation(tz.getLocation(id));
+    } catch (_) {}
+  }
 
   try {
     await plugin
         .initialize(
-          const InitializationSettings(android: AndroidInitializationSettings('@mipmap/ic_launcher')),
+          const InitializationSettings(android: AndroidInitializationSettings('@drawable/ic_stat')),
           onDidReceiveNotificationResponse: (r) => openAlarm(r.payload),
         )
         .timeout(const Duration(seconds: 5));
@@ -809,12 +815,24 @@ Future<void> _schedule(
       );
   try {
     await go(AndroidScheduleMode.exactAllowWhileIdle);
-  } catch (_) {
+    schedInfo = 'exact';
+  } catch (e) {
     try {
       await go(AndroidScheduleMode.inexactAllowWhileIdle);
-    } catch (_) {}
+      schedInfo = 'inexact ($e)';
+    } catch (e2) {
+      schedInfo = 'FAIL: $e2';
+    }
   }
+  try {
+    final n = (await plugin.pendingNotificationRequests()).length;
+    final canExact = await _android?.canScheduleExactNotifications();
+    final notif = await _android?.areNotificationsEnabled();
+    schedInfo = '$schedInfo | pending=$n | exactOK=$canExact | notif=$notif | at=${when.hour}:${when.minute.toString().padLeft(2, '0')}';
+  } catch (_) {}
 }
+
+String schedInfo = '';
 
 Future<void> scheduleReminder(AppState a, Reminder r) async {
   await safeCancel(r.id);
