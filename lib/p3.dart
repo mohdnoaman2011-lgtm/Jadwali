@@ -790,7 +790,8 @@ class _AddPageState extends State<AddPage> {
       schedInfo = 'ERR: $e';
     }
     final c2 = navKey.currentContext;
-    if (c2 != null && schedInfo.isNotEmpty) showToast(c2, 'جدولة: $schedInfo');
+    // تظهر الرسالة فقط عند فشل الجدولة
+    if (c2 != null && (schedInfo.startsWith('FAIL') || schedInfo.startsWith('ERR'))) showToast(c2, 'تعذّرت جدولة التنبيه: $schedInfo');
   }
 
   Widget _label(Pal p, String s) => Padding(
