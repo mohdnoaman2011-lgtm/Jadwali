@@ -1248,8 +1248,15 @@ class HomePage extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           _whitePill(a.t('nextLecture')),
-                          const Spacer(),
-                          if (showRing) CountdownRing(minutes: inMin) else Flexible(child: _whitePill(a.inText(nextAt.difference(now)))),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Align(
+                              alignment: AlignmentDirectional.centerEnd,
+                              child: showRing
+                                  ? CountdownRing(minutes: inMin)
+                                  : FittedBox(fit: BoxFit.scaleDown, child: _whitePill(a.inText(nextAt.difference(now)))),
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 8),

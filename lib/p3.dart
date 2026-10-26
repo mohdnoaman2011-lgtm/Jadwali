@@ -57,7 +57,7 @@ class LectureRow extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(l.subject, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                          Text(l.room.isEmpty ? '—' : '${a.t('hall')} ${l.room}', style: TextStyle(fontSize: 13, color: p.muted)),
+                          Text(l.room.isEmpty ? '—' : '${a.t('hall')} ${l.room}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: p.muted)),
                         ],
                       ),
                     ),
