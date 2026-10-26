@@ -1161,16 +1161,16 @@ class CountdownRing extends StatelessWidget {
     final a = AppScope.of(context);
     final m = minutes.clamp(0, 60);
     return SizedBox(
-      width: 68,
-      height: 68,
+      width: 58,
+      height: 58,
       child: CustomPaint(
         painter: _RingPainter(1 - m / 60),
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('$minutes', style: const TextStyle(fontSize: 22, height: 1.0, fontWeight: FontWeight.w700, color: Colors.white)),
-              Text(a.ar ? 'دقيقة' : 'min', style: const TextStyle(fontSize: 10.5, height: 1.2, color: Colors.white70)),
+              Text('$minutes', style: const TextStyle(fontSize: 18, height: 1.0, fontWeight: FontWeight.w700, color: Colors.white)),
+              Text(a.ar ? 'دقيقة' : 'min', style: const TextStyle(fontSize: 10, height: 1.2, color: Colors.white70)),
             ],
           ),
         ),
@@ -1222,7 +1222,7 @@ class HomePage extends StatelessWidget {
         final showRing = inMin >= 1 && inMin < 120;
         children.add(Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(32),
+            borderRadius: BorderRadius.circular(28),
             gradient: const LinearGradient(
               begin: Alignment.topRight,
               end: Alignment.bottomLeft,
@@ -1233,13 +1233,13 @@ class HomePage extends StatelessWidget {
             boxShadow: const [BoxShadow(color: Color(0x551E5BD8), blurRadius: 40, offset: Offset(0, 18))],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(32),
+            borderRadius: BorderRadius.circular(28),
             child: Stack(
               children: [
-                PositionedDirectional(start: -50, top: -70, child: _glow(220, const Color(0xFF4FE0B6), 0.22)),
+                PositionedDirectional(start: -50, top: -70, child: _glow(180, const Color(0xFF4FE0B6), 0.22)),
                 PositionedDirectional(end: -70, bottom: -100, child: _glow(260, const Color(0xFF7FA8FF), 0.28)),
                 Padding(
-                  padding: const EdgeInsets.all(22),
+                  padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
@@ -1252,18 +1252,24 @@ class HomePage extends StatelessWidget {
                           if (showRing) CountdownRing(minutes: inMin) else Flexible(child: _whitePill(a.inText(nextAt.difference(now)))),
                         ],
                       ),
-                      const SizedBox(height: 16),
-                      Text(nl.subject, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 32, height: 1.15, fontWeight: FontWeight.w700, color: Colors.white)),
-                      const SizedBox(height: 14),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          _heroInfo(Icons.schedule, '${a.fmtMin(nl.start)} – ${a.fmtMin(nl.end)}'),
-                          if (nl.room.isNotEmpty) _heroInfo(Icons.place_outlined, '${a.t('hall')} ${nl.room}'),
-                        ],
+                      const SizedBox(height: 8),
+                      Text(nl.subject, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 26, height: 1.2, fontWeight: FontWeight.w700, color: Colors.white)),
+                      const SizedBox(height: 8),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: AlignmentDirectional.centerStart,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _heroInfo(Icons.schedule, '${a.fmtMin(nl.start)} – ${a.fmtMin(nl.end)}'),
+                            if (nl.room.isNotEmpty) ...[
+                              const SizedBox(width: 16),
+                              _heroInfo(Icons.place_outlined, '${a.t('hall')} ${nl.room}'),
+                            ],
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 14),
                       Row(
                         children: [
                           Expanded(flex: 5, child: _heroBtn(a.t('details'), null, false, () => openLectureDetail(context, nl))),
@@ -1422,20 +1428,16 @@ class HomePage extends StatelessWidget {
   Widget _whitePill(String s) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
         decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(20)),
-        child: Text(s, style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w600)),
+        child: Text(s, maxLines: 1, softWrap: false, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w600)),
       );
 
-  Widget _heroInfo(IconData i, String s) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(14)),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(i, size: 16, color: Colors.white),
-            const SizedBox(width: 6),
-            Text(s, style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w500)),
-          ],
-        ),
+  Widget _heroInfo(IconData i, String s) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(i, size: 16, color: Colors.white70),
+          const SizedBox(width: 6),
+          Text(s, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500)),
+        ],
       );
 
   Widget _glow(double size, Color c, double alpha) => Container(
@@ -1449,15 +1451,15 @@ class HomePage extends StatelessWidget {
 
   Widget _heroBtn(String label, IconData? icon, bool ghost, VoidCallback onTap) => Material(
         color: ghost ? Colors.white.withValues(alpha: 0.14) : Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         child: InkWell(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(16),
           onTap: () {
             HapticFeedback.lightImpact();
             onTap();
           },
           child: SizedBox(
-            height: 50,
+            height: 44,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
