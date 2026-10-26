@@ -45,7 +45,7 @@ class SoundPage extends StatelessWidget {
 
     final durOptions = <int, String>{1: a.t('min1'), 5: a.t('min5'), 10: a.t('min10'), 0: a.t('untilStop')};
 
-    return Scaffold(
+    return GScaffold(
       appBar: AppBar(title: Text(a.t('soundTitle'), style: const TextStyle(fontWeight: FontWeight.w700))),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -351,7 +351,7 @@ class _SubjectsPageState extends State<SubjectsPage> {
   Widget build(BuildContext context) {
     final a = AppScope.of(context);
     final p = Pal.of(context);
-    return Scaffold(
+    return GScaffold(
       appBar: AppBar(title: Text(a.t('subjects'), style: const TextStyle(fontWeight: FontWeight.w700))),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),

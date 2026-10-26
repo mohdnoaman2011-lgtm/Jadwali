@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -45,6 +46,7 @@ const Map<String, Map<String, String>> _tr = {
     'darkMode': 'الوضع الداكن',
     'home': 'الرئيسية',
     'schedule': 'الجدول الأسبوعي',
+    'navWeek': 'الجدول',
     'reminders': 'التذكيرات',
     'settings': 'الإعدادات',
     'greet': 'صباح الخير',
@@ -206,6 +208,7 @@ const Map<String, Map<String, String>> _tr = {
     'darkMode': 'Dark mode',
     'home': 'Home',
     'schedule': 'Weekly schedule',
+    'navWeek': 'Week',
     'reminders': 'Reminders',
     'settings': 'Settings',
     'greet': 'Good morning',
@@ -949,44 +952,62 @@ class Pal {
     required this.amber,
     required this.amberText,
     required this.sw,
+    required this.sheet,
+    required this.gradA,
+    required this.gradB,
+    required this.glowA,
+    required this.glowB,
+    required this.glowC,
   });
 
-  final Color bg, card, text, muted, line, soft, pri, onPri, grn, grnSoft, red, redSoft, amber, amberText, sw;
+  final Color bg, card, text, muted, line, soft, pri, onPri, grn, grnSoft, red, redSoft, amber, amberText, sw, sheet, gradA, gradB, glowA, glowB, glowC;
 
   static const light = Pal(
-    bg: Color(0xFFF5F6F3),
-    card: Color(0xFFFFFFFF),
+    bg: Color(0xFFEEF3FC),
+    card: Color(0xB8FFFFFF),
     text: Color(0xFF0B1B3A),
-    muted: Color(0xFF55627F),
-    line: Color(0xFFE4E7EE),
-    soft: Color(0xFFE9EDF6),
-    pri: Color(0xFF0F2A6B),
+    muted: Color(0xFF4F5C7C),
+    line: Color(0xE6FFFFFF),
+    soft: Color(0x1F1E3A8A),
+    pri: Color(0xFF123A9E),
     onPri: Color(0xFFFFFFFF),
     grn: Color(0xFF0C8A63),
-    grnSoft: Color(0xFFDDF4EA),
+    grnSoft: Color(0x3334D399),
     red: Color(0xFFC62F3E),
-    redSoft: Color(0xFFFBE4E7),
-    amber: Color(0xFFFFF1D6),
+    redSoft: Color(0x26E5484D),
+    amber: Color(0x40FFC24D),
     amberText: Color(0xFF6B4300),
-    sw: Color(0xFFC3CCE0),
+    sw: Color(0xFFB9C3DD),
+    sheet: Color(0xFFF7F9FE),
+    gradA: Color(0xFFE3ECFF),
+    gradB: Color(0xFFF4F0FF),
+    glowA: Color(0x806C9BFF),
+    glowB: Color(0x6634D3A4),
+    glowC: Color(0x66B79BFF),
   );
 
   static const dark = Pal(
-    bg: Color(0xFF0A1226),
-    card: Color(0xFF121C36),
-    text: Color(0xFFEEF2FF),
-    muted: Color(0xFF9DA9CB),
-    line: Color(0xFF22304F),
-    soft: Color(0xFF1B2A4B),
-    pri: Color(0xFFBFD2FF),
+    bg: Color(0xFF060B1D),
+    card: Color(0x17FFFFFF),
+    text: Color(0xFFF3F6FF),
+    muted: Color(0xFFA7B4D6),
+    line: Color(0x2EFFFFFF),
+    soft: Color(0x24FFFFFF),
+    pri: Color(0xFFC4D6FF),
     onPri: Color(0xFF08133A),
     grn: Color(0xFF34D399),
-    grnSoft: Color(0xFF103A2E),
+    grnSoft: Color(0x3334D399),
     red: Color(0xFFFF8A94),
-    redSoft: Color(0xFF3C1A22),
-    amber: Color(0xFF3A2E12),
+    redSoft: Color(0x33FF8A94),
+    amber: Color(0x33FFD98A),
     amberText: Color(0xFFFFD98A),
-    sw: Color(0xFF34406A),
+    sw: Color(0xFF3A4570),
+    sheet: Color(0xFF111A36),
+    gradA: Color(0xFF0A1433),
+    gradB: Color(0xFF050818),
+    glowA: Color(0x802F6BFF),
+    glowB: Color(0x5934D3A4),
+    glowC: Color(0x668A5CFF),
   );
 
   static Pal of(BuildContext context) => Theme.of(context).brightness == Brightness.dark ? dark : light;
@@ -997,17 +1018,18 @@ ThemeData _theme(Brightness b) {
   final base = ThemeData(
     useMaterial3: true,
     brightness: b,
-    scaffoldBackgroundColor: p.bg,
+    scaffoldBackgroundColor: Colors.transparent,
+    splashFactory: InkSparkle.splashFactory,
     colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1E5BD8), brightness: b).copyWith(
       primary: p.pri,
       onPrimary: p.onPri,
-      surface: p.bg,
+      surface: p.sheet,
       onSurface: p.text,
     ),
   );
   return base.copyWith(
     textTheme: GoogleFonts.ibmPlexSansArabicTextTheme(base.textTheme).apply(bodyColor: p.text, displayColor: p.text),
-    appBarTheme: AppBarTheme(backgroundColor: p.bg, foregroundColor: p.text, elevation: 0, scrolledUnderElevation: 0),
+    appBarTheme: AppBarTheme(backgroundColor: Colors.transparent, foregroundColor: p.text, elevation: 0, scrolledUnderElevation: 0),
     switchTheme: SwitchThemeData(
       thumbColor: WidgetStateProperty.all(Colors.white),
       trackColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? p.grn : p.sw),
@@ -1052,6 +1074,106 @@ class JadwaliApp extends StatelessWidget {
         );
       }),
     );
+  }
+}
+
+/// خلفية الواجهة الزجاجية: تدرّج لوني مع توهّج ناعم.
+class GlassBackdrop extends StatelessWidget {
+  const GlassBackdrop({super.key, required this.child});
+  final Widget child;
+
+  Widget _blob(double size, Color c) => IgnorePointer(
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(shape: BoxShape.circle, gradient: RadialGradient(colors: [c, c.withValues(alpha: 0)])),
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final p = Pal.of(context);
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        DecoratedBox(
+          decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [p.gradA, p.gradB])),
+        ),
+        PositionedDirectional(top: -150, end: -120, child: _blob(420, p.glowA)),
+        PositionedDirectional(top: 300, start: -220, child: _blob(440, p.glowB)),
+        PositionedDirectional(bottom: -180, end: -100, child: _blob(400, p.glowC)),
+        child,
+      ],
+    );
+  }
+}
+
+/// Scaffold بخلفية زجاجية (كل صفحة لها خلفيتها حتى لا تتداخل عند الانتقال).
+class GScaffold extends StatelessWidget {
+  const GScaffold({super.key, this.appBar, this.body, this.bottomNavigationBar});
+  final PreferredSizeWidget? appBar;
+  final Widget? body;
+  final Widget? bottomNavigationBar;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassBackdrop(
+      child: Scaffold(backgroundColor: Colors.transparent, appBar: appBar, body: body, bottomNavigationBar: bottomNavigationBar),
+    );
+  }
+}
+
+/// سطح زجاجي: تمويه الخلفية + حد لامع.
+class GlassBox extends StatelessWidget {
+  const GlassBox({super.key, required this.child, this.radius = 28, this.color, this.blur = 18, this.shadow = true});
+  final Widget child;
+  final double radius;
+  final Color? color;
+  final double blur;
+  final bool shadow;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = Pal.of(context);
+    final dark = isDarkOf(context);
+    final r = BorderRadius.circular(radius);
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: r,
+        boxShadow: shadow ? [BoxShadow(color: Color(dark ? 0x40000000 : 0x140B1B3A), blurRadius: 30, offset: const Offset(0, 12))] : null,
+      ),
+      child: ClipRRect(
+        borderRadius: r,
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+          child: Container(
+            decoration: BoxDecoration(
+              color: color ?? p.card,
+              borderRadius: r,
+              border: Border.all(color: p.line, width: 1),
+              gradient: LinearGradient(
+                begin: Alignment.topRight,
+                end: Alignment.bottomLeft,
+                colors: [Colors.white.withValues(alpha: dark ? 0.08 : 0.35), Colors.white.withValues(alpha: 0)],
+              ),
+            ),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// بطاقة زجاجية قابلة للّمس (بديل Material).
+class GlassMaterial extends StatelessWidget {
+  const GlassMaterial({super.key, required this.child, this.radius = 24});
+  final Widget child;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassBox(radius: radius, blur: 14, shadow: false, child: Material(type: MaterialType.transparency, child: child));
   }
 }
 

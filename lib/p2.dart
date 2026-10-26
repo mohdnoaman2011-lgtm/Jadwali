@@ -2,6 +2,30 @@ part of 'main.dart';
 
 // ───────────────────────── عناصر واجهة مشتركة ─────────────────────────
 
+bool isDarkOf(BuildContext c) => Theme.of(c).brightness == Brightness.dark;
+
+List<BoxShadow> softShadow(BuildContext c, [double k = 1]) =>
+    isDarkOf(c) ? const [] : [BoxShadow(color: Color.fromRGBO(11, 27, 58, 0.07 * k), blurRadius: 26, offset: Offset(0, 9 * k))];
+
+/// ظهور تدريجي مع صعود خفيف للعناصر عند فتح الصفحة.
+class Reveal extends StatelessWidget {
+  const Reveal({super.key, required this.index, required this.child});
+  final int index;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final ms = 320 + (index > 7 ? 7 : index) * 70;
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: 1),
+      duration: Duration(milliseconds: ms),
+      curve: Curves.easeOutCubic,
+      builder: (context, v, c) => Opacity(opacity: v, child: Transform.translate(offset: Offset(0, 18 * (1 - v)), child: c)),
+      child: child,
+    );
+  }
+}
+
 class AppCard extends StatelessWidget {
   const AppCard({super.key, required this.child, this.padding = const EdgeInsets.all(16), this.onTap, this.color});
   final Widget child;
@@ -12,13 +36,15 @@ class AppCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = Pal.of(context);
-    return Material(
-      color: color ?? p.card,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24), side: BorderSide(color: p.line)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(24),
-        onTap: onTap,
-        child: Padding(padding: padding, child: child),
+    final r = BorderRadius.circular(28);
+    return GlassBox(
+      radius: 28,
+      color: color,
+      child: Material(
+        type: MaterialType.transparency,
+        borderRadius: r,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(onTap: onTap, child: Padding(padding: padding, child: child)),
       ),
     );
   }
@@ -265,21 +291,35 @@ class AppButton extends StatelessWidget {
         fg = p.muted;
         break;
     }
+    final grad = kind == BtnKind.primary && !isDarkOf(context)
+        ? const LinearGradient(begin: Alignment.topRight, end: Alignment.bottomLeft, colors: [Color(0xFF2B6BF0), Color(0xFF0F2A6B)])
+        : null;
     return SizedBox(
       height: height,
       width: double.infinity,
-      child: Material(
-        color: bg,
-        borderRadius: BorderRadius.circular(18),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(18),
-          onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: grad == null ? bg : null,
+          gradient: grad,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: grad == null ? null : const [BoxShadow(color: Color(0x4D1E5BD8), blurRadius: 18, offset: Offset(0, 8))],
+        ),
+        child: Material(
+          type: MaterialType.transparency,
+          borderRadius: BorderRadius.circular(20),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap == null ? null : () {
+              HapticFeedback.lightImpact();
+              onTap!();
+            },
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               if (icon != null) ...[Icon(icon, size: 20, color: fg), const SizedBox(width: 8)],
               Flexible(child: Text(label, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: fg))),
             ],
+          ),
           ),
         ),
       ),
@@ -322,13 +362,16 @@ class RoundIconButton extends StatelessWidget {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          Material(
-            color: p.card,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: p.line)),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(16),
-              onTap: onTap,
-              child: SizedBox(width: 44, height: 44, child: Icon(icon, size: 22, color: color ?? p.text)),
+          Container(
+            decoration: BoxDecoration(color: p.card, borderRadius: BorderRadius.circular(20), border: Border.all(color: p.line)),
+            child: Material(
+              type: MaterialType.transparency,
+              borderRadius: BorderRadius.circular(20),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: onTap,
+                child: SizedBox(width: 50, height: 50, child: Icon(icon, size: 24, color: color ?? p.text)),
+              ),
             ),
           ),
           if (badge != null && badge! > 0)
@@ -410,7 +453,7 @@ Future<T?> showAppSheet<T>(BuildContext context, Widget Function(BuildContext) b
   return showModalBottomSheet<T>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: p.card,
+    backgroundColor: p.sheet,
     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
     builder: (c) => SafeArea(
       child: Padding(
@@ -705,7 +748,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
     final p = Pal.of(context);
     final titles = [a.t('ob1t'), a.t('ob2t'), a.t('ob3t')];
     final descs = [a.t('ob1d'), a.t('ob2d'), a.t('ob3d')];
-    return Scaffold(
+    return GScaffold(
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
@@ -829,7 +872,7 @@ class _PermissionPageState extends State<PermissionPage> {
   Widget build(BuildContext context) {
     final a = AppScope.of(context);
     final p = Pal.of(context);
-    return Scaffold(
+    return GScaffold(
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 40, 20, 24),
@@ -885,73 +928,103 @@ class _ShellPageState extends State<ShellPage> {
 
   void _add() => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const AddPage()));
 
-  Widget _item(AppState a, Pal p, int i, IconData icon, IconData iconOn, String label) {
+  Widget _item(Pal p, int i, IconData icon, IconData iconOn, String label) {
     final on = index == i;
-    return Expanded(child: GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => setState(() => index = i),
-      child: Container(
-        height: 56,
-        decoration: BoxDecoration(color: on ? p.soft : Colors.transparent, borderRadius: BorderRadius.circular(20)),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(on ? iconOn : icon, size: 22, color: on ? p.pri : p.muted),
-            const SizedBox(height: 1),
-            Text(label, maxLines: 2, textAlign: TextAlign.center, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10.5, height: 1.1, fontWeight: on ? FontWeight.w700 : FontWeight.w500, color: on ? p.pri : p.muted)),
-          ],
+    return Expanded(
+      flex: on ? 6 : 2,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          if (index != i) HapticFeedback.selectionClick();
+          setState(() => index = i);
+        },
+        child: Center(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 260),
+            curve: Curves.easeOutCubic,
+            height: 48,
+            constraints: const BoxConstraints(minWidth: 48),
+            padding: EdgeInsets.symmetric(horizontal: on ? 12 : 0),
+            decoration: BoxDecoration(color: on ? p.soft : Colors.transparent, borderRadius: BorderRadius.circular(24)),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(on ? iconOn : icon, size: 24, color: on ? p.pri : p.muted),
+                if (on) ...[
+                  const SizedBox(width: 6),
+                  Flexible(child: Text(label, maxLines: 1, overflow: TextOverflow.fade, softWrap: false, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: p.pri))),
+                ],
+              ],
+            ),
+          ),
         ),
       ),
-    ));
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final a = AppScope.of(context);
     final p = Pal.of(context);
+    final dark = isDarkOf(context);
     final pages = <Widget>[
       HomePage(onOpenWeek: () => setState(() => index = 1), onOpenReminders: () => setState(() => index = 2)),
       const WeekPage(),
       const RemindersPage(),
       const SettingsPage(),
     ];
-    return Scaffold(
-      body: SafeArea(bottom: false, child: pages[index]),
+    return GScaffold(
+      body: SafeArea(
+        bottom: false,
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          switchInCurve: Curves.easeOut,
+          transitionBuilder: (child, anim) => FadeTransition(opacity: anim, child: child),
+          child: KeyedSubtree(key: ValueKey<int>(index), child: pages[index]),
+        ),
+      ),
       bottomNavigationBar: SafeArea(
         child: Container(
           height: 72,
-          margin: const EdgeInsets.fromLTRB(14, 6, 14, 12),
-          padding: const EdgeInsets.symmetric(horizontal: 6),
-          decoration: BoxDecoration(
-            color: p.card,
-            borderRadius: BorderRadius.circular(30),
-            border: Border.all(color: p.line),
-            boxShadow: const [BoxShadow(color: Color(0x240F2A6B), blurRadius: 24, offset: Offset(0, 8))],
-          ),
+          margin: const EdgeInsets.fromLTRB(18, 6, 18, 12),
+          child: GlassBox(
+            radius: 36,
+            blur: 24,
+            color: dark ? const Color(0x33101A38) : const Color(0xB3FFFFFF),
+            child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _item(a, p, 0, Icons.calendar_today_outlined, Icons.calendar_today, a.t('home')),
-              _item(a, p, 1, Icons.grid_view_outlined, Icons.grid_view_rounded, a.t('schedule')),
-              Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: Tooltip(
-                message: a.t('newT'),
-                child: GestureDetector(
-                  onTap: _add,
-                  child: Container(
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      gradient: const LinearGradient(begin: Alignment.topRight, end: Alignment.bottomLeft, colors: [Color(0xFF1E5BD8), Color(0xFF0F2A6B)]),
-                      boxShadow: const [BoxShadow(color: Color(0x731E5BD8), blurRadius: 18, offset: Offset(0, 8))],
+              _item(p, 0, Icons.calendar_today_outlined, Icons.calendar_today, a.t('home')),
+              _item(p, 1, Icons.grid_view_outlined, Icons.grid_view_rounded, a.t('navWeek')),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: Tooltip(
+                  message: a.t('newT'),
+                  child: GestureDetector(
+                    onTap: () {
+                      HapticFeedback.mediumImpact();
+                      _add();
+                    },
+                    child: Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(22),
+                        gradient: const LinearGradient(begin: Alignment.topRight, end: Alignment.bottomLeft, colors: [Color(0xFF3A78F5), Color(0xFF0F2A6B)]),
+                        boxShadow: const [BoxShadow(color: Color(0x661E5BD8), blurRadius: 20, offset: Offset(0, 8))],
+                      ),
+                      child: const Icon(Icons.add_rounded, size: 30, color: Colors.white),
                     ),
-                    child: const Icon(Icons.add, size: 28, color: Colors.white),
                   ),
                 ),
-              )),
-              _item(a, p, 2, Icons.check_circle_outline, Icons.check_circle, a.t('reminders')),
-              _item(a, p, 3, Icons.tune, Icons.tune, a.t('settings')),
+              ),
+              _item(p, 2, Icons.check_circle_outline, Icons.check_circle, a.t('reminders')),
+              _item(p, 3, Icons.tune, Icons.tune, a.t('settings')),
             ],
+          ),
+            ),
           ),
         ),
       ),
@@ -971,15 +1044,16 @@ class PageTop extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = Pal.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 22, 20, 10),
+      padding: const EdgeInsets.fromLTRB(22, 26, 22, 12),
       child: Row(
         children: [
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (subtitle != null) Text(subtitle!, style: TextStyle(fontSize: 13.5, color: p.muted)),
-                Text(title, style: const TextStyle(fontSize: 28, height: 1.2, fontWeight: FontWeight.w700)),
+                if (subtitle != null) Text(subtitle!, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500, color: p.muted)),
+                const SizedBox(height: 2),
+                Text(title, style: const TextStyle(fontSize: 33, height: 1.15, fontWeight: FontWeight.w700)),
               ],
             ),
           ),
@@ -1009,6 +1083,7 @@ class DayStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     final a = AppScope.of(context);
     final p = Pal.of(context);
+    final dark = isDarkOf(context);
     final today = DateTime.now().weekday;
     return Row(
       children: [
@@ -1019,23 +1094,26 @@ class DayStrip extends StatelessWidget {
               child: GestureDetector(
                 onTap: onTap,
                 child: Container(
-                  padding: const EdgeInsets.fromLTRB(0, 8, 0, 9),
+                  padding: const EdgeInsets.fromLTRB(0, 11, 0, 11),
                   decoration: BoxDecoration(
                     color: wd == today ? p.pri : p.card,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: wd == today ? p.pri : p.line),
+                    borderRadius: BorderRadius.circular(24),
+                    border: wd != today ? Border.all(color: p.line) : Border.all(color: Colors.white.withValues(alpha: 0.35)),
+                    boxShadow: wd == today
+                        ? [BoxShadow(color: p.pri.withValues(alpha: dark ? 0.0 : 0.30), blurRadius: 18, offset: const Offset(0, 8))]
+                        : null,
                   ),
                   child: Column(
                     children: [
-                      Text(a.shortDay(wd), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: wd == today ? p.onPri : p.muted)),
-                      const SizedBox(height: 2),
-                      Text('${weekDate(wd).day}', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: wd == today ? p.onPri : p.text)),
-                      const SizedBox(height: 2),
+                      Text(a.shortDay(wd), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: wd == today ? p.onPri.withValues(alpha: 0.85) : p.muted)),
+                      const SizedBox(height: 3),
+                      Text('${weekDate(wd).day}', style: TextStyle(fontSize: 19, height: 1.1, fontWeight: FontWeight.w700, color: wd == today ? p.onPri : p.text)),
+                      const SizedBox(height: 5),
                       Container(
                         width: 5,
                         height: 5,
                         decoration: BoxDecoration(
-                          color: wd == today ? const Color(0xFF2DD4A4) : (a.lectures.any((l) => l.weekday == wd) ? p.pri.withValues(alpha: 0.55) : Colors.transparent),
+                          color: wd == today ? const Color(0xFF2DD4A4) : (a.lectures.any((l) => l.weekday == wd) ? p.pri.withValues(alpha: 0.45) : Colors.transparent),
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -1059,11 +1137,11 @@ class _RingPainter extends CustomPainter {
     final rect = Rect.fromLTWH(3, 3, size.width - 6, size.height - 6);
     final track = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 5
+      ..strokeWidth = 4.5
       ..color = const Color(0x38FFFFFF);
     final arc = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 5
+      ..strokeWidth = 4.5
       ..strokeCap = StrokeCap.round
       ..color = const Color(0xFF4FE0B6);
     canvas.drawArc(rect, 0, 6.2831853, false, track);
@@ -1083,16 +1161,16 @@ class CountdownRing extends StatelessWidget {
     final a = AppScope.of(context);
     final m = minutes.clamp(0, 60);
     return SizedBox(
-      width: 58,
-      height: 58,
+      width: 68,
+      height: 68,
       child: CustomPaint(
         painter: _RingPainter(1 - m / 60),
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('$minutes', style: const TextStyle(fontSize: 17, height: 1.05, fontWeight: FontWeight.w700, color: Colors.white)),
-              Text(a.ar ? 'دقيقة' : 'min', style: const TextStyle(fontSize: 10.5, height: 1.1, color: Colors.white)),
+              Text('$minutes', style: const TextStyle(fontSize: 22, height: 1.0, fontWeight: FontWeight.w700, color: Colors.white)),
+              Text(a.ar ? 'دقيقة' : 'min', style: const TextStyle(fontSize: 10.5, height: 1.2, color: Colors.white70)),
             ],
           ),
         ),
@@ -1130,11 +1208,6 @@ class HomePage extends StatelessWidget {
 
     final children = <Widget>[];
 
-    if (a.lectures.isNotEmpty) {
-      children.add(DayStrip(onTap: onOpenWeek));
-      children.add(const SizedBox(height: 14));
-    }
-
     if (a.lectures.isEmpty) {
       children.add(EmptyState(
         icon: Icons.calendar_today_outlined,
@@ -1145,53 +1218,73 @@ class HomePage extends StatelessWidget {
     } else {
       if (next != null && nextAt != null) {
         final nl = next;
+        final inMin = nextAt.difference(now).inMinutes;
+        final showRing = inMin >= 1 && inMin < 120;
         children.add(Container(
-          padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(30),
-            gradient: const LinearGradient(begin: Alignment.topRight, end: Alignment.bottomLeft, colors: [Color(0xFF1E5BD8), Color(0xFF0F2A6B)]),
-            boxShadow: const [BoxShadow(color: Color(0x401E5BD8), blurRadius: 24, offset: Offset(0, 10))],
+            borderRadius: BorderRadius.circular(32),
+            gradient: const LinearGradient(
+              begin: Alignment.topRight,
+              end: Alignment.bottomLeft,
+              colors: [Color(0xFF2B6BF0), Color(0xFF123A9E), Color(0xFF0A1F55)],
+              stops: [0, 0.55, 1],
+            ),
+            border: Border.all(color: const Color(0x40FFFFFF)),
+            boxShadow: const [BoxShadow(color: Color(0x551E5BD8), blurRadius: 40, offset: Offset(0, 18))],
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _whitePill(a.t('nextLecture')),
-                  (nextAt.difference(now).inMinutes >= 1 && nextAt.difference(now).inMinutes < 120)
-                      ? CountdownRing(minutes: nextAt.difference(now).inMinutes)
-                      : _whitePill(a.inText(nextAt.difference(now))),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Text(nl.subject, style: const TextStyle(fontSize: 27, height: 1.25, fontWeight: FontWeight.w700, color: Colors.white)),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 18,
-                runSpacing: 6,
-                children: [
-                  _heroInfo(Icons.schedule, '${a.fmtMin(nl.start)} – ${a.fmtMin(nl.end)}'),
-                  if (nl.room.isNotEmpty) _heroInfo(Icons.place_outlined, '${a.t('hall')} ${nl.room}'),
-                ],
-              ),
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  Expanded(child: _heroBtn(a.t('details'), null, false, () => openLectureDetail(context, nl))),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _heroBtn(nl.on ? a.t('alertOn') : a.t('alertOff'), nl.on ? Icons.notifications_active_outlined : Icons.notifications_off_outlined, true, () async {
-                      await a.update(() => nl.on = !nl.on);
-                      await scheduleLecture(a, nl);
-                    }),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(32),
+            child: Stack(
+              children: [
+                PositionedDirectional(start: -50, top: -70, child: _glow(220, const Color(0xFF4FE0B6), 0.22)),
+                PositionedDirectional(end: -70, bottom: -100, child: _glow(260, const Color(0xFF7FA8FF), 0.28)),
+                Padding(
+                  padding: const EdgeInsets.all(22),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          _whitePill(a.t('nextLecture')),
+                          const Spacer(),
+                          if (showRing) CountdownRing(minutes: inMin) else Flexible(child: _whitePill(a.inText(nextAt.difference(now)))),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(nl.subject, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 32, height: 1.15, fontWeight: FontWeight.w700, color: Colors.white)),
+                      const SizedBox(height: 14),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          _heroInfo(Icons.schedule, '${a.fmtMin(nl.start)} – ${a.fmtMin(nl.end)}'),
+                          if (nl.room.isNotEmpty) _heroInfo(Icons.place_outlined, '${a.t('hall')} ${nl.room}'),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          Expanded(flex: 5, child: _heroBtn(a.t('details'), null, false, () => openLectureDetail(context, nl))),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            flex: 6,
+                            child: _heroBtn(nl.on ? a.t('alertOn') : a.t('alertOff'), nl.on ? Icons.notifications_active_outlined : Icons.notifications_off_outlined, true, () async {
+                              await a.update(() => nl.on = !nl.on);
+                              await scheduleLecture(a, nl);
+                            }),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
         ));
-        children.add(const SizedBox(height: 16));
+        children.add(const SizedBox(height: 22));
       }
 
 
@@ -1318,8 +1411,8 @@ class HomePage extends StatelessWidget {
         ),
         Expanded(
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-            children: children,
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+            children: [for (var i = 0; i < children.length; i++) Reveal(index: i, child: children[i])],
           ),
         ),
       ],
@@ -1328,31 +1421,47 @@ class HomePage extends StatelessWidget {
 
   Widget _whitePill(String s) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(20)),
-        child: Text(s, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(20)),
+        child: Text(s, style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w600)),
       );
 
-  Widget _heroInfo(IconData i, String s) => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(i, size: 17, color: Colors.white),
-          const SizedBox(width: 6),
-          Text(s, style: const TextStyle(color: Colors.white, fontSize: 14.5)),
-        ],
+  Widget _heroInfo(IconData i, String s) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(14)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(i, size: 16, color: Colors.white),
+            const SizedBox(width: 6),
+            Text(s, style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w500)),
+          ],
+        ),
+      );
+
+  Widget _glow(double size, Color c, double alpha) => Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(colors: [c.withValues(alpha: alpha), c.withValues(alpha: 0)]),
+        ),
       );
 
   Widget _heroBtn(String label, IconData? icon, bool ghost, VoidCallback onTap) => Material(
-        color: ghost ? Colors.white.withValues(alpha: 0.16) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: ghost ? Colors.white.withValues(alpha: 0.14) : Colors.white,
+        borderRadius: BorderRadius.circular(18),
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          onTap: () {
+            HapticFeedback.lightImpact();
+            onTap();
+          },
           child: SizedBox(
-            height: 46,
+            height: 50,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                if (icon != null) ...[Icon(icon, size: 18, color: Colors.white), const SizedBox(width: 8)],
+                if (icon != null) ...[Icon(icon, size: 18, color: Colors.white), const SizedBox(width: 7)],
                 Flexible(
                   child: Text(label, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700, color: ghost ? Colors.white : const Color(0xFF0F2A6B))),
                 ),
@@ -1361,7 +1470,6 @@ class HomePage extends StatelessWidget {
           ),
         ),
       );
-
   Widget _sectionTitle(String t, String count, Pal p) => Row(
         children: [
           Text(t, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),

@@ -31,9 +31,8 @@ class LectureRow extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         Expanded(
-          child: Material(
-            color: p.card,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: p.line)),
+          child: GlassMaterial(
+            radius: 20,
             child: InkWell(
               borderRadius: BorderRadius.circular(20),
               onTap: () => openLectureDetail(context, l),
@@ -366,9 +365,8 @@ class ReminderTile extends StatelessWidget {
     final r = reminder;
     final now = DateTime.now();
     final dueToday = !r.done && r.when.year == now.year && r.when.month == now.month && r.when.day == now.day;
-    return Material(
-      color: p.card,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24), side: BorderSide(color: p.line)),
+    return GlassMaterial(
+      radius: 24,
       child: InkWell(
         borderRadius: BorderRadius.circular(24),
         onTap: () => openReminderDetail(context, r),
@@ -503,7 +501,7 @@ class DetailPage extends StatelessWidget {
       }
     }
 
-    return Scaffold(
+    return GScaffold(
       appBar: AppBar(
         actions: [
           IconButton(tooltip: a.t('edit'), icon: const Icon(Icons.edit_outlined), onPressed: onEdit),
@@ -840,7 +838,7 @@ class _AddPageState extends State<AddPage> {
     final selBefore = isLec ? before : rBefore;
     final subjColor = a.colorOf(subject);
 
-    return Scaffold(
+    return GScaffold(
       appBar: AppBar(title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700))),
       body: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 560), child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
