@@ -954,16 +954,16 @@ class Pal {
   final Color bg, card, text, muted, line, soft, pri, onPri, grn, grnSoft, red, redSoft, amber, amberText, sw;
 
   static const light = Pal(
-    bg: Color(0xFFF3F5FB),
+    bg: Color(0xFFF5F6F3),
     card: Color(0xFFFFFFFF),
-    text: Color(0xFF0E1A3D),
+    text: Color(0xFF0B1B3A),
     muted: Color(0xFF55627F),
-    line: Color(0xFFE2E7F1),
-    soft: Color(0xFFEAEEF8),
+    line: Color(0xFFE4E7EE),
+    soft: Color(0xFFE9EDF6),
     pri: Color(0xFF0F2A6B),
     onPri: Color(0xFFFFFFFF),
-    grn: Color(0xFF12805C),
-    grnSoft: Color(0xFFDDF3EA),
+    grn: Color(0xFF0C8A63),
+    grnSoft: Color(0xFFDDF4EA),
     red: Color(0xFFC62F3E),
     redSoft: Color(0xFFFBE4E7),
     amber: Color(0xFFFFF1D6),
@@ -972,13 +972,13 @@ class Pal {
   );
 
   static const dark = Pal(
-    bg: Color(0xFF080D1E),
-    card: Color(0xFF121A33),
+    bg: Color(0xFF0A1226),
+    card: Color(0xFF121C36),
     text: Color(0xFFEEF2FF),
     muted: Color(0xFF9DA9CB),
-    line: Color(0xFF222D50),
-    soft: Color(0xFF1A2444),
-    pri: Color(0xFF7EA3FF),
+    line: Color(0xFF22304F),
+    soft: Color(0xFF1B2A4B),
+    pri: Color(0xFFBFD2FF),
     onPri: Color(0xFF08133A),
     grn: Color(0xFF34D399),
     grnSoft: Color(0xFF103A2E),

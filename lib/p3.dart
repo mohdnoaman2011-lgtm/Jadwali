@@ -41,7 +41,17 @@ class LectureRow extends StatelessWidget {
                 padding: const EdgeInsets.only(left: 14, right: 4, top: 4, bottom: 4),
                 child: Row(
                   children: [
-                    SubjectDot(color: a.colorOf(l.subject)),
+                    Container(
+                      width: 40,
+                      height: 40,
+                      margin: const EdgeInsets.symmetric(vertical: 6),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(color: a.colorOf(l.subject).withValues(alpha: 0.16), borderRadius: BorderRadius.circular(14)),
+                      child: Text(
+                        l.subject.isEmpty ? '•' : String.fromCharCode(l.subject.runes.first),
+                        style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: a.colorOf(l.subject)),
+                      ),
+                    ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(

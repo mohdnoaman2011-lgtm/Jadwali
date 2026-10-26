@@ -999,6 +999,108 @@ class SubjectDot extends StatelessWidget {
   Widget build(BuildContext context) => Container(width: size, height: size, decoration: BoxDecoration(color: color, shape: BoxShape.circle));
 }
 
+// ───────────────────────── شريط الأيام وحلقة العد التنازلي ─────────────────────────
+
+class DayStrip extends StatelessWidget {
+  const DayStrip({super.key, required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final a = AppScope.of(context);
+    final p = Pal.of(context);
+    final today = DateTime.now().weekday;
+    return Row(
+      children: [
+        for (final wd in kWeekdays)
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 3),
+              child: GestureDetector(
+                onTap: onTap,
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(0, 8, 0, 9),
+                  decoration: BoxDecoration(
+                    color: wd == today ? p.pri : p.card,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: wd == today ? p.pri : p.line),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(a.shortDay(wd), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: wd == today ? p.onPri : p.muted)),
+                      const SizedBox(height: 2),
+                      Text('${weekDate(wd).day}', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: wd == today ? p.onPri : p.text)),
+                      const SizedBox(height: 2),
+                      Container(
+                        width: 5,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: wd == today ? const Color(0xFF2DD4A4) : (a.lectures.any((l) => l.weekday == wd) ? p.pri.withValues(alpha: 0.55) : Colors.transparent),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _RingPainter extends CustomPainter {
+  _RingPainter(this.progress);
+  final double progress;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Rect.fromLTWH(3, 3, size.width - 6, size.height - 6);
+    final track = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 5
+      ..color = const Color(0x38FFFFFF);
+    final arc = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 5
+      ..strokeCap = StrokeCap.round
+      ..color = const Color(0xFF4FE0B6);
+    canvas.drawArc(rect, 0, 6.2831853, false, track);
+    canvas.drawArc(rect, -1.5707963, 6.2831853 * progress, false, arc);
+  }
+
+  @override
+  bool shouldRepaint(covariant _RingPainter old) => old.progress != progress;
+}
+
+class CountdownRing extends StatelessWidget {
+  const CountdownRing({super.key, required this.minutes});
+  final int minutes;
+
+  @override
+  Widget build(BuildContext context) {
+    final a = AppScope.of(context);
+    final m = minutes.clamp(0, 60);
+    return SizedBox(
+      width: 58,
+      height: 58,
+      child: CustomPaint(
+        painter: _RingPainter(1 - m / 60),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('$minutes', style: const TextStyle(fontSize: 17, height: 1.05, fontWeight: FontWeight.w700, color: Colors.white)),
+              Text(a.ar ? 'دقيقة' : 'min', style: const TextStyle(fontSize: 10.5, height: 1.1, color: Colors.white)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ───────────────────────── الرئيسية (اليوم) ─────────────────────────
 
 class HomePage extends StatelessWidget {
@@ -1028,6 +1130,11 @@ class HomePage extends StatelessWidget {
 
     final children = <Widget>[];
 
+    if (a.lectures.isNotEmpty) {
+      children.add(DayStrip(onTap: onOpenWeek));
+      children.add(const SizedBox(height: 14));
+    }
+
     if (a.lectures.isEmpty) {
       children.add(EmptyState(
         icon: Icons.calendar_today_outlined,
@@ -1052,7 +1159,9 @@ class HomePage extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   _whitePill(a.t('nextLecture')),
-                  _whitePill(a.inText(nextAt.difference(now))),
+                  (nextAt.difference(now).inMinutes >= 1 && nextAt.difference(now).inMinutes < 120)
+                      ? CountdownRing(minutes: nextAt.difference(now).inMinutes)
+                      : _whitePill(a.inText(nextAt.difference(now))),
                 ],
               ),
               const SizedBox(height: 16),
@@ -1085,14 +1194,6 @@ class HomePage extends StatelessWidget {
         children.add(const SizedBox(height: 16));
       }
 
-      children.add(Row(
-        children: [
-          Expanded(child: _tile(p, Icons.menu_book_outlined, p.pri, a.t('lecCount'), '${today.length}', onOpenWeek)),
-          const SizedBox(width: 12),
-          Expanded(child: _tile(p, Icons.assignment_outlined, p.amberText, a.t('remCount'), '${pending.length}', onOpenReminders)),
-        ],
-      ));
-      children.add(const SizedBox(height: 16));
 
       if (today.isEmpty) {
         children.add(AppCard(
