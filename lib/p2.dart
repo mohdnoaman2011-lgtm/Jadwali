@@ -610,59 +610,101 @@ void reminderActions(BuildContext context, Reminder r) {
 
 // ───────────────────────── شاشة البداية ─────────────────────────
 
-class SplashPage extends StatelessWidget {
+class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
 
+  @override
+  State<SplashPage> createState() => _SplashPageState();
+}
+
+class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateMixin {
   static const _navy = Color(0xFF0F2A6B);
+  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100))..forward();
+  bool _left = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future<void>.delayed(const Duration(milliseconds: 2200), _next);
+  }
+
+  void _next() {
+    if (!mounted || _left) return;
+    _left = true;
+    final a = AppScope.of(context);
+    final Widget target = a.onboarded ? const ShellPage() : const OnboardingPage();
+    Navigator.of(context).pushReplacement(PageRouteBuilder<void>(
+      transitionDuration: const Duration(milliseconds: 450),
+      pageBuilder: (_, __, ___) => target,
+      transitionsBuilder: (_, anim, __, child) => FadeTransition(opacity: anim, child: child),
+    ));
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final a = AppScope.of(context);
+    final scale = CurvedAnimation(parent: _c, curve: Curves.easeOutBack);
+    final fade = CurvedAnimation(parent: _c, curve: const Interval(0, 0.7, curve: Curves.easeOut));
+    final tag = CurvedAnimation(parent: _c, curve: const Interval(0.45, 1, curve: Curves.easeOut));
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 40),
-          child: Column(
-            children: [
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Image.memory(
-                      base64Decode(kLogoB64),
-                      width: 220,
-                      gaplessPlayback: true,
-                      semanticLabel: a.t('app'),
-                      errorBuilder: (context, error, stack) => Text(
-                        a.t('app'),
-                        style: const TextStyle(fontSize: 44, fontWeight: FontWeight.w700, color: _navy),
+        child: Stack(
+          children: [
+            Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  FadeTransition(
+                    opacity: fade,
+                    child: ScaleTransition(
+                      scale: Tween<double>(begin: 0.8, end: 1).animate(scale),
+                      child: Image.memory(
+                        base64Decode(kLogoB64),
+                        width: 230,
+                        gaplessPlayback: true,
+                        semanticLabel: a.t('app'),
+                        errorBuilder: (context, error, stack) => Text(
+                          a.t('app'),
+                          style: const TextStyle(fontSize: 44, fontWeight: FontWeight.w700, color: _navy),
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    Text(
+                  ),
+                  const SizedBox(height: 16),
+                  FadeTransition(
+                    opacity: tag,
+                    child: Text(
                       a.t('tagline'),
                       textAlign: TextAlign.center,
                       style: const TextStyle(fontSize: 17, height: 1.7, color: Color(0xFF3D4A66)),
                     ),
-                  ],
-                ),
-              ),
-              SizedBox(
-                width: double.infinity,
-                height: 58,
-                child: FilledButton(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: _navy,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                   ),
-                  onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const OnboardingPage())),
-                  child: Text(a.t('start'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                ],
+              ),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 48,
+              child: FadeTransition(
+                opacity: tag,
+                child: const Center(
+                  child: SizedBox(
+                    width: 26,
+                    height: 26,
+                    child: CircularProgressIndicator(strokeWidth: 2.6, color: _navy),
+                  ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
